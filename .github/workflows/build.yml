@@ -1,0 +1,44 @@
+name: Build Safari Extension
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Convert web extension to Safari extension
+        run: |
+          xcrun safari-web-extension-converter \
+            . \
+            --project-location ./build \
+            --app-name "News-Distiller" \
+            --bundle-identifier com.pklmedialab.news-distiller \
+            --swift \
+            --no-prompt \
+            --force
+
+      - name: Build the app
+        run: |
+          xcodebuild \
+            -project "build/News-Distiller/News-Distiller.xcodeproj" \
+            -scheme "News-Distiller (iOS)" \
+            -configuration Release \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: News-Distiller-Safari-Extension
+          path: build/
+          retention-days: 30
