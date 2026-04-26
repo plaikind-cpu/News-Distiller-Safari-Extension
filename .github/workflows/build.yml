@@ -13,42 +13,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: List all PNG files
+        run: find . -name "*.png"
+
       - name: Convert web extension to Safari extension
         run: |
-          xcrun safari-web-extension-converter \
-            . \
-            --project-location ./build \
-            --app-name "News-Distiller" \
-            --bundle-identifier com.pklmedialab.news-distiller \
-            --swift \
-            --no-prompt \
-            --force
-
-      - name: List files
-        run: find . -name "*.png" | head -20
-            
-      - name: Copy app icon
-        run: |
-          ICON_DEST="build/News-Distiller/Shared (App)/Resources/Icon.png"
-          cp Resources/images/icon128.png "$ICON_DEST"
-
-
-      - name: Copy app icon
-        run: |
-          ICON_DEST="build/News-Distiller/Shared (App)/Resources/Icon.png"
-          cp images/icon128.png "$ICON_DEST"
-
-      - name: Build the app
-        run: |
-          xcodebuild \
-            -project "build/News-Distiller/News-Distiller.xcodeproj" \
-            -scheme "News-Distiller (iOS)" \
-            -configuration Release \
-            -destination "generic/platform=iOS Simulator" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          xcrun safari-web-extension-converter . --project-location ./build --app-name "News-Distiller" --bundle-identifier com.pklmedialab.news-distiller --swift --no-prompt --force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
