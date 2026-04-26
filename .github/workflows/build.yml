@@ -23,6 +23,9 @@ jobs:
             --swift \
             --no-prompt \
             --force
+
+      - name: List files
+        run: find . -name "*.png" | head -20
             
       - name: Copy app icon
         run: |
