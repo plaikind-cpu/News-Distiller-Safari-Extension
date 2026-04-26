@@ -24,6 +24,10 @@ jobs:
             --no-prompt \
             --force
 
+      - name: Copy app icon
+        run: |
+          cp images/icon128.png "build/News-Distiller/Shared (App)/R
+
       - name: Build the app
         run: |
           xcodebuild \
