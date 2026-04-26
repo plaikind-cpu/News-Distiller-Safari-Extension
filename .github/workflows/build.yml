@@ -27,7 +27,7 @@ jobs:
       - name: Copy app icon
         run: |
           ICON_DEST="build/News-Distiller/Shared (App)/Resources/Icon.png"
-          cp "Resources/images/icon128.png" "$ICON_DEST"
+          cp Resources/images/icon128.png "$ICON_DEST"
 
 
       - name: Copy app icon
