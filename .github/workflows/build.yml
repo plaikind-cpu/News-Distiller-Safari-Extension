@@ -39,7 +39,6 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Distribution.mobileprovision
           echo "Provisioning profile installed"
-          ls ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Convert web extension to Safari extension
         run: |
@@ -54,6 +53,17 @@ jobs:
       - name: Copy app icon
         run: |
           cp Resources/images/icon128.png "build/News-Distiller/Shared (App)/Resources/Icon.png"
+
+      - name: Fix bundle IDs to match provisioning profile
+        run: |
+          cd build/News-Distiller
+          # Force all bundle IDs to lowercase to match our provisioning profile
+          find . -name "*.pbxproj" | xargs sed -i '' \
+            's/com\.pklmedialab\.News-Distiller\.Extension/com.pklmedialab.news-distiller.extension/g'
+          find . -name "*.pbxproj" | xargs sed -i '' \
+            's/com\.pklmedialab\.News-Distiller/com.pklmedialab.news-distiller/g'
+          echo "Bundle IDs after fix:"
+          grep -r "PRODUCT_BUNDLE_IDENTIFIER" . | grep -v ".xcuserstate"
 
       - name: Build and sign the app
         env:
