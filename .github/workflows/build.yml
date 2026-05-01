@@ -60,7 +60,7 @@ jobs:
       - name: Fix bundle IDs and provisioning profiles
         run: python3 fix_pbxproj.py
 
-      - name: Build and sign the app
+      - name: Build and archive
         env:
           KEYCHAIN_PASSWORD: temp_keychain_password
         run: |
@@ -75,9 +75,46 @@ jobs:
             archive \
             -archivePath build/News-Distiller.xcarchive
 
-      - name: Upload build artifact
+      - name: Create export options plist
+        run: |
+          cat > build/ExportOptions.plist << 'PLISTEOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>4FPWPSM7JG</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.pklmedialab.news-distiller</key>
+              <string>News-Distiller-Distribution</string>
+              <key>com.pklmedialab.news-distiller.extension</key>
+              <string>News-Distiller-Extension-Distribution</string>
+            </dict>
+          </dict>
+          </plist>
+          PLISTEOF
+
+      - name: Export IPA
+        env:
+          KEYCHAIN_PASSWORD: temp_keychain_password
+        run: |
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/News-Distiller.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -exportPath build/IPA
+
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: News-Distiller-Safari-Extension
-          path: build/
+          name: News-Distiller-IPA
+          path: build/IPA/
           retention-days: 30
