@@ -48,6 +48,7 @@ jobs:
             --project-location ./build \
             --app-name "News-Distiller" \
             --bundle-identifier com.pklmedialab.news-distiller \
+            --copy-resources \
             --swift \
             --no-prompt \
             --force
