@@ -59,52 +59,33 @@ jobs:
       - name: Fix bundle IDs and provisioning profiles
         run: |
           PBXPROJ="build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj"
-          # Fix bundle ID case
           sed -i '' 's/com\.pklmedialab\.News-Distiller\.Extension/com.pklmedialab.news-distiller.extension/g' "$PBXPROJ"
           sed -i '' 's/com\.pklmedialab\.News-Distiller/com.pklmedialab.news-distiller/g' "$PBXPROJ"
-          # Set CODE_SIGN_STYLE to Manual for all targets
           sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
-          # Add provisioning profile specifiers for both targets
-          # After each PRODUCT_BUNDLE_IDENTIFIER for the extension, add the extension profile
           python3 - << 'PYEOF'
-          import re
-          with open("build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj", "r") as f:
-              content = f.read()
-          
-          # Add PROVISIONING_PROFILE_SPECIFIER after CODE_SIGN_STYLE = Manual in each build config section
-          # We'll use a targeted approach: find each Release/Debug config block and add the right profile
-          
-          # Replace any existing PROVISIONING_PROFILE_SPECIFIER lines first
-          content = re.sub(r'\s*PROVISIONING_PROFILE_SPECIFIER = "[^"]*";', '', content)
-          
-          # Now add the correct specifier based on which bundle ID is in the same block
-          def add_profile_specifier(match):
-              block = match.group(0)
-              if 'com.pklmedialab.news-distiller.extension' in block:
-                  return block.replace(
-                      'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller.extension";',
-                      'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller.extension";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Extension-Distribution";'
-                  )
-              elif 'com.pklmedialab.news-distiller' in block:
-                  return block.replace(
-                      'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller";',
-                      'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Distribution";'
-                  )
-              return block
-          
-          # Match each build configuration block
-          content = re.sub(r'\{[^{}]*PRODUCT_BUNDLE_IDENTIFIER[^{}]*\}', add_profile_specifier, content, flags=re.DOTALL)
-          
-          with open("build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj", "w") as f:
-              f.write(content)
-          
-          print("Done patching pbxproj")
-          PYEOF
-          
-          echo "Bundle IDs:"
-          grep "PRODUCT_BUNDLE_IDENTIFIER" "$PBXPROJ"
-          echo "Provisioning profiles:"
-          grep "PROVISIONING_PROFILE_SPECIFIER" "$PBXPROJ"
+import re
+with open("build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj", "r") as f:
+    content = f.read()
+content = re.sub(r'\s*PROVISIONING_PROFILE_SPECIFIER = "[^"]*";', '', content)
+def add_profile_specifier(match):
+    block = match.group(0)
+    if 'com.pklmedialab.news-distiller.extension' in block:
+        return block.replace(
+            'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller.extension";',
+            'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller.extension";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Extension-Distribution";'
+        )
+    elif 'com.pklmedialab.news-distiller' in block:
+        return block.replace(
+            'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller";',
+            'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Distribution";'
+        )
+    return block
+content = re.sub(r'\{[^{}]*PRODUCT_BUNDLE_IDENTIFIER[^{}]*\}', add_profile_specifier, content, flags=re.DOTALL)
+with open("build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj", "w") as f:
+    f.write(content)
+print("Done patching pbxproj")
+PYEOF
+          grep "PRODUCT_BUNDLE_IDENTIFIER\|PROVISIONING_PROFILE_SPECIFIER" "$PBXPROJ"
 
       - name: Build and sign the app
         env:
@@ -118,6 +99,7 @@ jobs:
             -destination "generic/platform=iOS" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
+            OTHER_CODE_SIGN_FLAGS="--deep" \
             archive \
             -archivePath build/News-Distiller.xcarchive
 
