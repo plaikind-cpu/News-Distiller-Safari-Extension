@@ -71,7 +71,6 @@ jobs:
             -destination "generic/platform=iOS" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
-            OTHER_CODE_SIGN_FLAGS="--deep" \
             archive \
             -archivePath build/News-Distiller.xcarchive
 
