@@ -57,15 +57,18 @@ jobs:
         run: |
           cp Resources/images/icon128.png "build/News-Distiller/Shared (App)/Resources/Icon.png"
 
-      - name: Fix bundle IDs to match provisioning profiles
+      - name: Fix bundle IDs and provisioning profiles in Xcode project
         run: |
-          cd build/News-Distiller
-          find . -name "*.pbxproj" | xargs sed -i '' \
-            's/com\.pklmedialab\.News-Distiller\.Extension/com.pklmedialab.news-distiller.extension/g'
-          find . -name "*.pbxproj" | xargs sed -i '' \
-            's/com\.pklmedialab\.News-Distiller/com.pklmedialab.news-distiller/g'
-          echo "Bundle IDs after fix:"
-          grep "PRODUCT_BUNDLE_IDENTIFIER" . -r | grep -v ".xcuserstate"
+          PBXPROJ="build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj"
+          # Fix bundle ID case
+          sed -i '' 's/com\.pklmedialab\.News-Distiller\.Extension/com.pklmedialab.news-distiller.extension/g' "$PBXPROJ"
+          sed -i '' 's/com\.pklmedialab\.News-Distiller/com.pklmedialab.news-distiller/g' "$PBXPROJ"
+          # Set provisioning profile for app target
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Distribution";/g' "$PBXPROJ"
+          echo "Bundle IDs:"
+          grep "PRODUCT_BUNDLE_IDENTIFIER" "$PBXPROJ"
+          echo "Provisioning profiles:"
+          grep "PROVISIONING_PROFILE" "$PBXPROJ"
 
       - name: Build and sign the app
         env:
@@ -79,10 +82,10 @@ jobs:
             -destination "generic/platform=iOS" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
+            PROVISIONING_PROFILE_SPECIFIER_app="News-Distiller-Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER_extension="News-Distiller-Extension-Distribution" \
             archive \
-            -archivePath build/News-Distiller.xcarchive \
-            "PROVISIONING_PROFILE[com.pklmedialab.news-distiller]=a67d6a46-dff3-44b0-a3e5-919543c6931d" \
-            "PROVISIONING_PROFILE[com.pklmedialab.news-distiller.extension]=c36f4f3a-d5ac-4ed4-a2f3-620e2b0e1285"
+            -archivePath build/News-Distiller.xcarchive
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
