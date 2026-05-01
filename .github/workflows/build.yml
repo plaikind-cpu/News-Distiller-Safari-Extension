@@ -32,13 +32,16 @@ jobs:
             -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
 
-      - name: Install Provisioning Profile
+      - name: Install Provisioning Profiles
         env:
           PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+          PROVISIONING_PROFILE_EXT_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_EXT }}
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Distribution.mobileprovision
-          echo "Provisioning profile installed"
+          echo "$PROVISIONING_PROFILE_EXT_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Extension-Distribution.mobileprovision
+          echo "Profiles installed:"
+          ls ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Convert web extension to Safari extension
         run: |
@@ -54,16 +57,15 @@ jobs:
         run: |
           cp Resources/images/icon128.png "build/News-Distiller/Shared (App)/Resources/Icon.png"
 
-      - name: Fix bundle IDs to match provisioning profile
+      - name: Fix bundle IDs to match provisioning profiles
         run: |
           cd build/News-Distiller
-          # Force all bundle IDs to lowercase to match our provisioning profile
           find . -name "*.pbxproj" | xargs sed -i '' \
             's/com\.pklmedialab\.News-Distiller\.Extension/com.pklmedialab.news-distiller.extension/g'
           find . -name "*.pbxproj" | xargs sed -i '' \
             's/com\.pklmedialab\.News-Distiller/com.pklmedialab.news-distiller/g'
           echo "Bundle IDs after fix:"
-          grep -r "PRODUCT_BUNDLE_IDENTIFIER" . | grep -v ".xcuserstate"
+          grep "PRODUCT_BUNDLE_IDENTIFIER" . -r | grep -v ".xcuserstate"
 
       - name: Build and sign the app
         env:
@@ -77,10 +79,10 @@ jobs:
             -destination "generic/platform=iOS" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
-            PROVISIONING_PROFILE_SPECIFIER="News-Distiller-Distribution" \
-            PROVISIONING_PROFILE="a67d6a46-dff3-44b0-a3e5-919543c6931d" \
             archive \
-            -archivePath build/News-Distiller.xcarchive
+            -archivePath build/News-Distiller.xcarchive \
+            "PROVISIONING_PROFILE[com.pklmedialab.news-distiller]=a67d6a46-dff3-44b0-a3e5-919543c6931d" \
+            "PROVISIONING_PROFILE[com.pklmedialab.news-distiller.extension]=c36f4f3a-d5ac-4ed4-a2f3-620e2b0e1285"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
