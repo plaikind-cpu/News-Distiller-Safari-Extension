@@ -40,7 +40,6 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Distribution.mobileprovision
           echo "$PROVISIONING_PROFILE_EXT_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Extension-Distribution.mobileprovision
-          echo "Profiles installed:"
           ls ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Convert web extension to Safari extension
@@ -57,18 +56,13 @@ jobs:
         run: |
           cp Resources/images/icon128.png "build/News-Distiller/Shared (App)/Resources/Icon.png"
 
-      - name: Fix bundle IDs and provisioning profiles in Xcode project
+      - name: Fix bundle IDs in Xcode project
         run: |
           PBXPROJ="build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj"
-          # Fix bundle ID case
           sed -i '' 's/com\.pklmedialab\.News-Distiller\.Extension/com.pklmedialab.news-distiller.extension/g' "$PBXPROJ"
           sed -i '' 's/com\.pklmedialab\.News-Distiller/com.pklmedialab.news-distiller/g' "$PBXPROJ"
-          # Set provisioning profile for app target
-          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Distribution";/g' "$PBXPROJ"
-          echo "Bundle IDs:"
+          echo "Bundle IDs after fix:"
           grep "PRODUCT_BUNDLE_IDENTIFIER" "$PBXPROJ"
-          echo "Provisioning profiles:"
-          grep "PROVISIONING_PROFILE" "$PBXPROJ"
 
       - name: Build and sign the app
         env:
@@ -82,10 +76,10 @@ jobs:
             -destination "generic/platform=iOS" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
-            PROVISIONING_PROFILE_SPECIFIER_app="News-Distiller-Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER_extension="News-Distiller-Extension-Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="News-Distiller-Distribution" \
             archive \
-            -archivePath build/News-Distiller.xcarchive
+            -archivePath build/News-Distiller.xcarchive \
+            OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
