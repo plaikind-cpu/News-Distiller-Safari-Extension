@@ -52,3 +52,18 @@ print("Done patching pbxproj")
 result = subprocess.run(['grep', '-E', 'PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE_SPECIFIER', PBXPROJ],
                        capture_output=True, text=True)
 print(result.stdout)
+
+# Step 4: Set minimum deployment target to iOS 16
+with open(PBXPROJ, "r") as f:
+    content = f.read()
+content = content.replace(
+    'IPHONEOS_DEPLOYMENT_TARGET = 15.0;',
+    'IPHONEOS_DEPLOYMENT_TARGET = 16.0;'
+)
+content = content.replace(
+    'IPHONEOS_DEPLOYMENT_TARGET = 15;',
+    'IPHONEOS_DEPLOYMENT_TARGET = 16;'
+)
+with open(PBXPROJ, "w") as f:
+    f.write(content)
+print("Deployment target set to iOS 16")
