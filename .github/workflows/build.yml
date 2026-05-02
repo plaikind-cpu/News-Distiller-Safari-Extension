@@ -7,11 +7,17 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer || \
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          xcodebuild -version
 
       - name: Install Apple Distribution Certificate
         env:
@@ -52,10 +58,7 @@ jobs:
             --no-prompt \
             --force
 
-      - name: Install Pillow
-        run: pip3 install Pillow --break-system-packages --quiet
-
-      - name: Generate icons and copy Icon.png
+      - name: Copy icons and manifest
         run: python3 generate_icons.py
 
       - name: Fix bundle IDs and provisioning profiles
