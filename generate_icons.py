@@ -1,21 +1,15 @@
 import json, os, glob, shutil
-from PIL import Image
-
-# Source icon from the repo
-SRC = "Resources/images/icon128.png"
-
-# Open and crop to square
-img = Image.open(SRC).convert("RGBA")
-w, h = img.size
-side = min(w, h)
-img = img.crop(((w-side)//2, (h-side)//2, (w-side)//2+side, (h-side)//2+side))
 
 # 1. Copy Icon.png for the app wrapper
 icon_dest = "build/News-Distiller/Shared (App)/Resources/Icon.png"
-img.resize((128, 128), Image.LANCZOS).save(icon_dest)
-print(f"Copied Icon.png")
+if os.path.exists("Resources/icons/Icon.png"):
+    shutil.copy("Resources/icons/Icon.png", icon_dest)
+    print(f"Copied Icon.png")
+else:
+    shutil.copy("Resources/images/icon128.png", icon_dest)
+    print(f"Copied icon128.png as Icon.png (fallback)")
 
-# 2. Find and populate the AppIcon.appiconset
+# 2. Populate the AppIcon.appiconset
 catalogs = glob.glob("build/**/*.appiconset", recursive=True)
 if not catalogs:
     xcassets = glob.glob("build/**/*.xcassets", recursive=True)
@@ -23,57 +17,47 @@ if not catalogs:
         catalog = os.path.join(xcassets[0], "AppIcon.appiconset")
         os.makedirs(catalog, exist_ok=True)
     else:
-        print("WARNING: No xcassets found")
         catalog = None
 else:
     catalog = catalogs[0]
 
-if catalog:
-    print(f"Writing icon sizes to: {catalog}")
-    sizes = [
-        (20,1,"iphone"),(20,2,"iphone"),(20,3,"iphone"),
-        (29,1,"iphone"),(29,2,"iphone"),(29,3,"iphone"),
-        (40,1,"iphone"),(40,2,"iphone"),(40,3,"iphone"),
-        (60,2,"iphone"),(60,3,"iphone"),
-        (20,1,"ipad"),(20,2,"ipad"),
-        (29,1,"ipad"),(29,2,"ipad"),
-        (40,1,"ipad"),(40,2,"ipad"),
-        (76,1,"ipad"),(76,2,"ipad"),
-        (83.5,2,"ipad"),
-        (1024,1,"ios-marketing"),
-    ]
-    images_json = []
-    generated = {}
-    for pt, scale, idiom in sizes:
-        px = int(pt * scale)
-        filename = f"icon_{px}x{px}.png"
-        if px not in generated:
-            img.resize((px, px), Image.LANCZOS).save(os.path.join(catalog, filename))
-            generated[px] = filename
-        images_json.append({"idiom":idiom,"scale":f"{scale}x","size":f"{int(pt) if pt==int(pt) else pt}x{int(pt) if pt==int(pt) else pt}","filename":generated[px]})
-    contents = {"images": images_json, "info": {"author": "xcode", "version": 1}}
-    with open(os.path.join(catalog, "Contents.json"), "w") as f:
-        json.dump(contents, f, indent=2)
-    print(f"Generated {len(generated)} icon sizes")
+if catalog and os.path.exists("Resources/icons"):
+    for f in os.listdir("Resources/icons"):
+        if f.endswith(".png") or f == "Contents.json":
+            shutil.copy(f"Resources/icons/{f}", os.path.join(catalog, f))
+    print(f"Icons copied to {catalog}")
 
-# 3. Ensure manifest.json is in the extension resources
-ext_resources = glob.glob("build/**/News-Distiller Extension*", recursive=True)
-print(f"Extension resource dirs: {ext_resources}")
-for ext_dir in ext_resources:
-    if os.path.isdir(ext_dir):
-        manifest_src = "manifest.json"
-        manifest_dst = os.path.join(ext_dir, "manifest.json")
-        if os.path.exists(manifest_src) and not os.path.exists(manifest_dst):
-            shutil.copy(manifest_src, manifest_dst)
-            print(f"Copied manifest.json to {manifest_dst}")
+# 3. Copy manifest.json into every possible extension location
+print("\nSearching for extension bundle locations...")
+print("All build dirs:")
+for root, dirs, files in os.walk("build"):
+    for d in dirs:
+        print(f"  {os.path.join(root, d)}")
 
-# 4. Also check the Resources folder directly
-resources_dirs = glob.glob("build/**/Resources", recursive=True)
-for rd in resources_dirs:
-    if "Extension" in rd:
-        manifest_dst = os.path.join(rd, "manifest.json")
-        if not os.path.exists(manifest_dst) and os.path.exists("manifest.json"):
-            shutil.copy("manifest.json", manifest_dst)
-            print(f"Copied manifest.json to {manifest_dst}")
+# Find all .appex directories
+appex_dirs = glob.glob("build/**/*.appex", recursive=True)
+print(f"\nFound .appex dirs: {appex_dirs}")
+for appex in appex_dirs:
+    dst = os.path.join(appex, "manifest.json")
+    if os.path.exists("manifest.json"):
+        shutil.copy("manifest.json", dst)
+        print(f"Copied manifest.json to {dst}")
 
-print("Done!")
+# Also try Resources subfolder inside .appex
+for appex in appex_dirs:
+    res_dir = os.path.join(appex, "Resources")
+    if os.path.exists(res_dir):
+        dst = os.path.join(res_dir, "manifest.json")
+        shutil.copy("manifest.json", dst)
+        print(f"Copied manifest.json to {dst}")
+
+# Copy to all Extension resource folders in build tree
+for root, dirs, files in os.walk("build"):
+    if "Extension" in root and os.path.isdir(root):
+        if "manifest.json" not in files:
+            dst = os.path.join(root, "manifest.json")
+            if os.path.exists("manifest.json"):
+                shutil.copy("manifest.json", dst)
+                print(f"Copied manifest.json to {dst}")
+
+print("\nDone!")
