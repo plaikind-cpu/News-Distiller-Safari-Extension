@@ -52,9 +52,8 @@ jobs:
             --no-prompt \
             --force
 
-      - name: Copy app icon
-        run: |
-          cp Resources/images/icon128.png "build/News-Distiller/Shared (App)/Resources/Icon.png"
+      - name: Generate all required app icon sizes
+        run: python3 generate_icons.py
 
       - name: Fix bundle IDs and provisioning profiles
         run: python3 fix_pbxproj.py
