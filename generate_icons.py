@@ -1,7 +1,7 @@
 import json, os, glob, shutil
 
 # 1. Copy Icon.png for the app wrapper
-icon_dest = "build/TruthPrism/Shared (App)/Resources/Icon.png"
+icon_dest = "build/News-Distiller/Shared (App)/Resources/Icon.png"
 if os.path.exists("Resources/icons/Icon.png"):
     shutil.copy("Resources/icons/Icon.png", icon_dest)
     print(f"Copied Icon.png")

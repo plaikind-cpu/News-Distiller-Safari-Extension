@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "TruthPrism",
-  "version": "3.4",
-  "description": "AI fact-checker for news articles. Get a Factual Score and Context Score with plain-language analysis backed by real sources.",
+  "name": "News-Distiller",
+  "version": "1.0",
+  "description": "AI-powered news summarizer. Distill any article into key points and political lean analysis.",
   "icons": {
     "16": "images/icon16.png",
     "48": "images/icon48.png",
@@ -14,14 +14,12 @@
       "48": "images/icon48.png",
       "128": "images/icon128.png"
     },
-    "default_title": "TruthPrism",
+    "default_title": "News-Distiller",
     "default_popup": "popup.html"
   },
   "permissions": [
     "activeTab",
-    "tabs",
     "storage",
-    "downloads",
     "scripting"
   ],
   "host_permissions": [
@@ -35,6 +33,7 @@
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   }
 }
