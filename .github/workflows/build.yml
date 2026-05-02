@@ -40,7 +40,6 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Distribution.mobileprovision
           echo "$PROVISIONING_PROFILE_EXT_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Extension-Distribution.mobileprovision
-          ls ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Convert web extension to Safari extension
         run: |
@@ -111,6 +110,18 @@ jobs:
             -archivePath build/News-Distiller.xcarchive \
             -exportOptionsPlist build/ExportOptions.plist \
             -exportPath build/IPA
+
+      - name: Upload to App Store Connect
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file build/IPA/News-Distiller.ipa \
+            --username "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --verbose
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
