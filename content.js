@@ -1,36 +1,29 @@
-// News-Distiller content.js
-// Extracts article text from the current page
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getPageText') {
     try {
-      let text = '';
-      // Try article-specific selectors first
-      const selectors = [
-        'article',
-        '[class*="article-body"]',
-        '[class*="story-body"]',
-        '[class*="post-content"]',
-        '[class*="entry-content"]',
-        '[class*="article-content"]',
-        '[class*="story-content"]',
-        'main'
-      ];
-      for (const selector of selectors) {
-        const el = document.querySelector(selector);
-        if (el) {
-          text = el.innerText.trim();
-          if (text.length > 500) break;
-        }
+      // Remove script/style elements from consideration
+      const clone = document.body.cloneNode(true);
+      clone.querySelectorAll('script, style, nav, header, footer, aside, iframe, noscript').forEach(el => el.remove());
+
+      // Get text content
+      let text = clone.innerText || clone.textContent || '';
+
+      // Clean up whitespace
+      text = text.replace(/\s+/g, ' ').trim();
+
+      // Limit to ~15000 chars
+      if (text.length > 15000) {
+        text = text.substring(0, 15000);
       }
-      // Fallback to body
-      if (text.length < 500) {
-        text = document.body.innerText.trim();
-      }
-      sendResponse({ text: text.substring(0, 25000), url: window.location.href, title: document.title });
-    } catch(e) {
-      sendResponse({ text: '', error: e.message });
+
+      sendResponse({
+        text: text,
+        title: document.title,
+        url: window.location.href
+      });
+    } catch (e) {
+      sendResponse({ text: '', title: document.title, url: window.location.href, error: e.message });
     }
   }
-  return true;
+  return true; // keep channel open for async
 });
