@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "News-Distiller",
   "version": "1.0",
-  "description": "AI news summarizer. Distill any article into key points plus political lean analysis. Requires a Distiller Pack from pklmedialab.com.",
+  "description": "AI-powered news summarizer. Distill any article into key points and political lean analysis.",
   "icons": {
     "16": "images/icon16.png",
     "48": "images/icon48.png",
