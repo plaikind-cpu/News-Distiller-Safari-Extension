@@ -52,6 +52,9 @@ jobs:
             --no-prompt \
             --force
 
+      - name: Install Pillow
+        run: pip3 install Pillow --break-system-packages --quiet
+
       - name: Generate all required app icon sizes
         run: python3 generate_icons.py
 
