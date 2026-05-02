@@ -55,7 +55,7 @@ jobs:
       - name: Install Pillow
         run: pip3 install Pillow --break-system-packages --quiet
 
-      - name: Generate all required app icon sizes
+      - name: Generate icons and copy Icon.png
         run: python3 generate_icons.py
 
       - name: Fix bundle IDs and provisioning profiles
