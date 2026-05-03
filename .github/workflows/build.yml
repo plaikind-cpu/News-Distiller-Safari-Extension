@@ -46,9 +46,25 @@ jobs:
           echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Distribution.mobileprovision
           echo "$PROVISIONING_PROFILE_EXT_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Extension-Distribution.mobileprovision
 
+      - name: Stage extension source
+        run: |
+          rm -rf extension-src
+          mkdir -p extension-src
+          # Copy only the actual web extension files — NOT the build scripts
+          for f in manifest.json popup.html popup.js background.js content.js; do
+            if [ -f "$f" ]; then cp "$f" extension-src/; fi
+          done
+          # Copy images
+          if [ -d "Resources/images" ]; then
+            mkdir -p extension-src/images
+            cp Resources/images/*.png extension-src/images/ 2>/dev/null || true
+          fi
+          echo "=== extension-src contents ==="
+          find extension-src -type f
+
       - name: Convert web extension to Safari extension
         run: |
-          xcrun safari-web-extension-converter . \
+          xcrun safari-web-extension-converter ./extension-src \
             --project-location ./build \
             --app-name "News-Distiller" \
             --bundle-identifier com.pklmedialab.news-distiller \
