@@ -76,7 +76,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
             DEVELOPMENT_TEAM=4FPWPSM7JG \
-            CURRENT_PROJECT_VERSION=3 \
+            CURRENT_PROJECT_VERSION=4 \
             MARKETING_VERSION=1.1 \
             archive \
             -archivePath build/News-Distiller.xcarchive
