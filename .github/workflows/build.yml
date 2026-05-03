@@ -57,6 +57,39 @@ jobs:
             --no-prompt \
             --force
 
+      - name: DIAGNOSTIC - inspect converter output
+        run: |
+          echo "=== Top-level build/ structure ==="
+          ls -la build/ || true
+          echo
+          echo "=== Full file tree under build/ (first 200 entries) ==="
+          find build -type f | head -200
+          echo
+          echo "=== Directory tree under build/ ==="
+          find build -type d | sort
+          echo
+          echo "=== Looking for popup.html anywhere ==="
+          find build -name "popup.html" -o -name "popup.js" -o -name "content.js" -o -name "background.js" -o -name "splash.png" || true
+          echo
+          echo "=== Looking for any Resources folder under build/ ==="
+          find build -type d -name "Resources"
+          echo
+          echo "=== If Shared (Extension)/Resources exists, list its contents ==="
+          if [ -d "build/News-Distiller/Shared (Extension)/Resources" ]; then
+            ls -la "build/News-Distiller/Shared (Extension)/Resources/"
+            find "build/News-Distiller/Shared (Extension)/Resources/" -type f
+          else
+            echo "Path does not exist"
+          fi
+          echo
+          echo "=== project.pbxproj snippet — look at known files in extension target ==="
+          if [ -f "build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj" ]; then
+            # Show resources section
+            grep -E "popup\.html|popup\.js|background\.js|content\.js|manifest\.json" "build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj" | head -30
+          fi
+          echo
+          echo "=== END DIAGNOSTIC ==="
+
       - name: Copy icons and manifest
         run: python3 generate_icons.py
 
@@ -76,7 +109,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
             DEVELOPMENT_TEAM=4FPWPSM7JG \
-            CURRENT_PROJECT_VERSION=4 \
+            CURRENT_PROJECT_VERSION=5 \
             MARKETING_VERSION=1.1 \
             archive \
             -archivePath build/News-Distiller.xcarchive
