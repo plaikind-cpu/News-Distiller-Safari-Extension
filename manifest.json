@@ -37,7 +37,9 @@
     }
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": false
   }
 }
