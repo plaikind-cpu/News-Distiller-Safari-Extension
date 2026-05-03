@@ -11,11 +11,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Select Xcode 26
+      - name: Select Xcode 16.4 (avoid iOS 26 regression in newer Xcode)
         run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer || \
+          sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer || \
           sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer || \
-          sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer || \
-          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
           xcodebuild -version
 
       - name: Install Apple Distribution Certificate
@@ -125,7 +126,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
             DEVELOPMENT_TEAM=4FPWPSM7JG \
-            CURRENT_PROJECT_VERSION=5 \
+            CURRENT_PROJECT_VERSION=6 \
             MARKETING_VERSION=1.1 \
             archive \
             -archivePath build/News-Distiller.xcarchive
