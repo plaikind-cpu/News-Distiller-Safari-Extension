@@ -276,6 +276,8 @@ function toggleReport() {
 
 // Save PDF using jsPDF
 function savePDF() {
+  copyToClipboard(); return; // jsPDF not available in Safari extension
+  if (false) {
   if (!lastResult) return;
   try {
     var jsPDF = window.jspdf.jsPDF;
