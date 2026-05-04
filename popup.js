@@ -11,6 +11,7 @@ const LOADING_STEPS = [
 ];
 
 let _savedResult = null;
+let _savedMeta = null;
 let _loadingInterval = null;
 let _currentTab = null;
 
@@ -109,10 +110,26 @@ async function checkCurrentPage() {
   showLoading(true);
   hideError();
   hideResults();
+  _savedMeta = null;
   try {
     var results = await chrome.scripting.executeScript({
       target: { tabId: _currentTab.id },
       func: function() {
+        // Extract article metadata from page
+        function getMeta(names) {
+          for (var i = 0; i < names.length; i++) {
+            var el = document.querySelector('meta[property="' + names[i] + '"],meta[name="' + names[i] + '"]');
+            if (el && el.content) return el.content;
+          }
+          return '';
+        }
+        var title = getMeta(['og:title','twitter:title']) || document.title || '';
+        var siteName = getMeta(['og:site_name','application-name']) || '';
+        var pubDate = getMeta(['article:published_time','og:article:published_time','pubdate','date','DC.date']) || '';
+        // Try to get hostname as publication fallback
+        if (!siteName) siteName = window.location.hostname.replace('www.','');
+
+        // Extract article text
         var selectors = ['article','[role="main"]','.article-content','.article-body',
           '.post-content','.story-body','.entry-content','main','#main-content','#content'];
         var text = '';
@@ -125,12 +142,16 @@ async function checkCurrentPage() {
           clone.querySelectorAll('script,style,nav,footer,header,aside').forEach(function(e){e.remove();});
           text = clone.innerText;
         }
-        return 'Page Title: ' + document.title + '\nURL: ' + window.location.href + '\n\n' + text.replace(/\s+/g,' ').trim();
+        return {
+          text: 'Page Title: ' + document.title + '\nURL: ' + window.location.href + '\n\n' + text.replace(/\s+/g,' ').trim(),
+          meta: { title: title, siteName: siteName, pubDate: pubDate, url: window.location.href }
+        };
       }
     });
-    var pageText = results[0] && results[0].result;
-    if (!pageText) throw new Error('Could not extract text from page.');
-    await runDistill(pageText, code);
+    var result = results[0] && results[0].result;
+    if (!result) throw new Error('Could not extract text from page.');
+    _savedMeta = result.meta;
+    await runDistill(result.text, code);
   } catch(e) {
     showError(e.message || 'Could not read page content.');
     showLoading(false);
@@ -145,10 +166,11 @@ async function checkCustomText() {
   showLoading(true);
   hideError();
   hideResults();
+  _savedMeta = null;
   await runDistill(text, code);
 }
 
-// Extract summary from partially-streamed JSON, handling escaped quotes correctly
+// Extract and CONTINUOUSLY UPDATE summary from partial JSON buffer
 function extractSummaryFromBuffer(buf) {
   var sumKey = '"summary": "';
   var sumStart = buf.indexOf(sumKey);
@@ -158,21 +180,22 @@ function extractSummaryFromBuffer(buf) {
   while (textEnd < buf.length) {
     var ch = buf[textEnd];
     if (ch === '\\') { textEnd += 2; continue; } // skip escaped char
-    if (ch === '"') break; // end of string
+    if (ch === '"') break; // unescaped quote = end of string
     textEnd++;
   }
-  var partial = buf.substring(textStart, textEnd)
+  var raw = buf.substring(textStart, textEnd);
+  // Unescape JSON string sequences
+  var partial = raw
     .replace(/\\n/g, '\n')
     .replace(/\\t/g, '\t')
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, '\\');
-  return partial.length > 20 ? partial : null;
+  return partial.length > 10 ? partial : null;
 }
 
 async function runDistill(text, code) {
   _savedResult = null;
   var chunkBuffer = '';
-  var summaryShown = false;
 
   try {
     var resp = await fetch(SERVER_URL + '/api/distill', {
@@ -209,18 +232,15 @@ async function runDistill(text, code) {
 
           if (msg.error) { showError(msg.error); showLoading(false); return; }
 
-          // Accumulate chunks and show summary progressively
+          // Accumulate chunks and KEEP UPDATING summary on every chunk
           if (msg.chunk) {
             chunkBuffer += msg.chunk;
-            if (!summaryShown) {
-              var partial = extractSummaryFromBuffer(chunkBuffer);
-              if (partial) {
-                document.getElementById('summaryText').textContent = partial;
-                document.getElementById('summaryCard').style.display = 'block';
-                document.getElementById('results').style.display = 'block';
-                summaryShown = true;
-                // Keep spinner running until done event
-              }
+            // Re-extract summary every chunk — this shows it growing in real time
+            var partial = extractSummaryFromBuffer(chunkBuffer);
+            if (partial) {
+              document.getElementById('summaryText').textContent = partial;
+              document.getElementById('summaryCard').style.display = 'block';
+              document.getElementById('results').style.display = 'block';
             }
           }
 
@@ -245,9 +265,11 @@ async function runDistill(text, code) {
 }
 
 function renderResults(r) {
+  // Summary — final complete version
   document.getElementById('summaryText').textContent = r.summary || '';
   document.getElementById('summaryCard').style.display = 'block';
 
+  // Political lean
   if (r.lean) {
     var pct = LEAN_POSITIONS[r.lean] !== undefined ? LEAN_POSITIONS[r.lean] : 50;
     setTimeout(function() {
@@ -275,44 +297,92 @@ function renderResults(r) {
   document.getElementById('results').style.display = 'block';
 }
 
-// Full Report — generates HTML blob with PDF save and Mail buttons (matches TruthPrism pattern)
+// Full Report — HTML blob with lean graphic, PDF, mail, copy
 function openFullReport() {
   var d = _savedResult;
   if (!d) return;
   var timestamp = new Date().toLocaleString();
+  var m = _savedMeta || {};
 
   function esc(s) {
     return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // Format pub date nicely if it's ISO
+  var pubDateDisplay = '';
+  if (m.pubDate) {
+    try {
+      var dt = new Date(m.pubDate);
+      pubDateDisplay = dt.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    } catch(e) { pubDateDisplay = m.pubDate; }
+  }
+
+  // Article metadata block
+  var metaHtml = '';
+  if (m.title || m.siteName || pubDateDisplay || m.url) {
+    metaHtml = '<div class="article-meta">';
+    if (m.title) metaHtml += '<div class="article-title">' + esc(m.title) + '</div>';
+    var byline = [];
+    if (m.siteName) byline.push(esc(m.siteName));
+    if (pubDateDisplay) byline.push(esc(pubDateDisplay));
+    if (byline.length) metaHtml += '<div class="article-byline">' + byline.join(' &bull; ') + '</div>';
+    if (m.url) metaHtml += '<div class="article-url"><a href="' + esc(m.url) + '" target="_blank">' + esc(m.url) + '</a></div>';
+    metaHtml += '</div>';
+  }
+
+  // Sections
   var sectionsHtml = '';
   (d.sections || []).forEach(function(sec) {
     if (!sec.points || !sec.points.length) return;
     sectionsHtml += '<h2>' + esc(sec.title) + '</h2><ul>';
-    sec.points.forEach(function(pt) {
-      sectionsHtml += '<li>' + esc(pt) + '</li>';
-    });
+    sec.points.forEach(function(pt) { sectionsHtml += '<li>' + esc(pt) + '</li>'; });
     sectionsHtml += '</ul>';
   });
 
+  // Lean section — includes an inline SVG meter matching the popup style
   var leanHtml = '';
   if (d.lean) {
+    var LEAN_POS = { 'Left': 8, 'Center-Left': 28, 'Center': 50, 'Center-Right': 72, 'Right': 92 };
+    var pct = LEAN_POS[d.lean] !== undefined ? LEAN_POS[d.lean] : 50;
+    var conf = (d.confidence || 'low').toLowerCase();
+    var confColors = { 'low': '#cc8800', 'medium': '#4da6ff', 'high': '#1D9E75' };
+    var confBg = { 'low': '#2a2000', 'medium': '#0a2030', 'high': '#0a2820' };
+    var confColor = confColors[conf] || '#888';
+    var confBgColor = confBg[conf] || '#222';
+
+    var signalsHtml = '';
+    (d.signals || []).forEach(function(s) {
+      signalsHtml += '<li>' + esc(s) + '</li>';
+    });
+
     leanHtml = '<h2>Political Lean Assessment</h2>' +
       '<div class="lean-box">' +
-      '<div class="lean-verdict">' + esc(d.lean) +
-      (d.confidence ? ' <span class="conf">(' + esc(d.confidence) + ' confidence)</span>' : '') + '</div>';
-    if (d.signals && d.signals.length) {
-      leanHtml += '<ul class="signals">';
-      d.signals.forEach(function(s) { leanHtml += '<li>' + esc(s) + '</li>'; });
-      leanHtml += '</ul>';
-    }
-    if (d.caveat) leanHtml += '<p class="caveat">' + esc(d.caveat) + '</p>';
-    leanHtml += '</div>';
+        '<div class="lean-header">' +
+          '<div class="lean-title-sm">Political Lean</div>' +
+          '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:' + confBgColor + ';color:' + confColor + ';">' + esc(d.confidence || '') + ' confidence</span>' +
+        '</div>' +
+        // Gradient meter bar with marker
+        '<div style="margin:10px 0 4px;">' +
+          '<div style="display:flex;justify-content:space-between;font-size:10px;color:#888;margin-bottom:5px;">' +
+            '<span>Left</span><span>Center-Left</span><span>Center</span><span>Center-Right</span><span>Right</span>' +
+          '</div>' +
+          '<div style="position:relative;height:18px;border-radius:9px;background:linear-gradient(to right,#2040a0,#3060c0,#888,#c06030,#a02020);">' +
+            '<div style="position:absolute;top:50%;left:' + pct + '%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:white;border:2px solid #1a2a3a;box-shadow:0 0 0 2px white;"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:22px;font-weight:700;color:#0D6E6E;text-align:center;margin:10px 0 8px;">' + esc(d.lean) + '</div>' +
+        (signalsHtml ? '<ul class="signals">' + signalsHtml + '</ul>' : '') +
+        (d.caveat ? '<p class="caveat">' + esc(d.caveat) + '</p>' : '') +
+      '</div>';
   }
 
-  // Build plain text version for mail/copy
-  var plainText = 'NEWS-DISTILLER REPORT\nGenerated: ' + timestamp + '\n\n';
-  plainText += 'EXECUTIVE SUMMARY\n' + (d.summary || '') + '\n\n';
+  // Plain text for mail/copy
+  var plainText = 'NEWS-DISTILLER REPORT\nGenerated: ' + timestamp + '\n';
+  if (m.title) plainText += '\nARTICLE: ' + m.title;
+  if (m.siteName) plainText += '\nSOURCE: ' + m.siteName;
+  if (pubDateDisplay) plainText += '\nPUBLISHED: ' + pubDateDisplay;
+  if (m.url) plainText += '\nURL: ' + m.url;
+  plainText += '\n\nEXECUTIVE SUMMARY\n' + (d.summary || '') + '\n\n';
   (d.sections || []).forEach(function(sec) {
     if (!sec.points || !sec.points.length) return;
     plainText += sec.title.toUpperCase() + '\n';
@@ -328,7 +398,7 @@ function openFullReport() {
   }
   plainText += '\n---\nGenerated by News-Distiller \u2014 app.news-distiller.com';
 
-  var mailSubject = encodeURIComponent('News-Distiller Report');
+  var mailSubject = encodeURIComponent('News-Distiller Report' + (m.title ? ': ' + m.title : ''));
   var mailBody = encodeURIComponent(plainText);
   var mailtoLink = 'mailto:?subject=' + mailSubject + '&body=' + mailBody;
 
@@ -336,15 +406,20 @@ function openFullReport() {
     '<style>' +
     'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:800px;margin:40px auto;padding:0 24px;background:#f5f7fa;color:#1a2a3a;}' +
     'h1{font-size:22px;color:#0D6E6E;margin-bottom:4px;}' +
-    'h2{font-size:14px;font-weight:700;color:#0D6E6E;border-bottom:2px solid #0D6E6E;padding-bottom:4px;margin:20px 0 8px;}' +
-    '.meta{font-size:12px;color:#888;margin-bottom:20px;}' +
-    '.summary{background:white;border-left:4px solid #0D6E6E;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:4px;font-size:14px;line-height:1.8;color:#333;}' +
+    'h2{font-size:14px;font-weight:700;color:#0D6E6E;border-bottom:2px solid #11998E;padding-bottom:4px;margin:22px 0 8px;}' +
+    '.report-meta{font-size:12px;color:#888;margin-bottom:16px;}' +
+    '.article-meta{background:white;border:1px solid #dde;border-left:4px solid #0D6E6E;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:16px;}' +
+    '.article-title{font-size:16px;font-weight:700;color:#1a2a3a;margin-bottom:4px;}' +
+    '.article-byline{font-size:12px;color:#666;margin-bottom:4px;}' +
+    '.article-url{font-size:11px;color:#888;word-break:break-all;}' +
+    '.article-url a{color:#0D6E6E;}' +
+    '.summary{background:white;border:1px solid #dde;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px;line-height:1.8;color:#333;}' +
     'ul{margin:0 0 12px 0;padding-left:20px;}' +
     'li{font-size:13px;color:#333;line-height:1.7;margin-bottom:3px;}' +
-    '.lean-box{background:white;border-radius:8px;border:1px solid #dde;padding:14px;margin-bottom:10px;}' +
-    '.lean-verdict{font-size:20px;font-weight:700;color:#0D6E6E;margin-bottom:8px;}' +
-    '.conf{font-size:12px;font-weight:400;color:#888;}' +
-    '.signals{margin:6px 0 8px;padding-left:16px;}' +
+    '.lean-box{background:white;border:1px solid #dde;border-radius:8px;padding:16px;margin-bottom:10px;}' +
+    '.lean-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}' +
+    '.lean-title-sm{font-size:12px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:0.5px;}' +
+    '.signals{margin:4px 0 8px;padding-left:16px;}' +
     '.signals li{font-size:12px;color:#555;}' +
     '.caveat{font-size:12px;color:#cc8800;font-style:italic;margin:8px 0 0;padding-top:8px;border-top:1px solid #eee;}' +
     '.btn-row{display:flex;gap:10px;margin:24px 0;flex-wrap:wrap;}' +
@@ -353,10 +428,11 @@ function openFullReport() {
     '.btn-mail{background:#1D9E75;color:white;}' +
     '.btn-copy{background:#f0f4f8;color:#0D6E6E;border:1px solid #0D6E6E;}' +
     '.footer{font-size:11px;color:#aaa;margin-top:24px;padding-top:12px;border-top:1px solid #dde;}' +
-    '@media print{.btn-row{display:none;}.body{background:white;margin:0;}}' +
+    '@media print{.btn-row{display:none;}}' +
     '</style></head><body>' +
     '<h1>News-Distiller Report</h1>' +
-    '<div class="meta">Generated: ' + timestamp + '</div>' +
+    '<div class="report-meta">Generated: ' + timestamp + '</div>' +
+    metaHtml +
     '<h2>Executive Summary</h2>' +
     '<div class="summary">' + esc(d.summary || '') + '</div>' +
     sectionsHtml +
@@ -370,7 +446,8 @@ function openFullReport() {
     '<script>' +
     'var _plain=' + JSON.stringify(plainText) + ';' +
     'function copyText(){navigator.clipboard.writeText(_plain).then(function(){' +
-    'var b=document.querySelector(".btn-copy");b.textContent="\u2713 Copied!";setTimeout(function(){b.textContent="\ud83d\udccb Copy Text"},2000);});}' +
+    'var b=document.querySelector(".btn-copy");b.textContent="\u2713 Copied!";' +
+    'setTimeout(function(){b.textContent="\ud83d\udccb Copy Text"},2000);});}' +
     '<\/script>' +
     '</body></html>';
 
@@ -381,7 +458,11 @@ function openFullReport() {
 async function copyReport() {
   var d = _savedResult;
   if (!d) return;
-  var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n' + (d.summary || '') + '\n\n';
+  var m = _savedMeta || {};
+  var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n';
+  if (m.title) text += 'Article: ' + m.title + '\n';
+  if (m.siteName) text += 'Source: ' + m.siteName + '\n';
+  text += '\n' + (d.summary || '') + '\n\n';
   if (d.lean) {
     text += 'Political Lean: ' + d.lean + (d.confidence ? ' (' + d.confidence + ' confidence)' : '') + '\n';
     (d.signals || []).forEach(function(s) { text += '  \u203a ' + s + '\n'; });
@@ -403,6 +484,7 @@ function resetResults() {
   document.getElementById('errorMsg').style.display = 'none';
   document.getElementById('customText').value = '';
   _savedResult = null;
+  _savedMeta = null;
 }
 
 function showLoading(on) {
