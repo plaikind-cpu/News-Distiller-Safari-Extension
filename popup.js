@@ -1,7 +1,7 @@
 // News-Distiller Safari Extension popup.js
-// All handlers via addEventListener in DOMContentLoaded — required by MV3 CSP
+// Matches TruthPrism patterns exactly
 
-const API_BASE = 'https://app.news-distiller.com';
+const SERVER_URL = 'https://app.news-distiller.com';
 const LEAN_POSITIONS = { 'Left': 8, 'Center-Left': 28, 'Center': 50, 'Center-Right': 72, 'Right': 92 };
 const LOADING_STEPS = [
   'Reading and analyzing content\u2026',
@@ -11,229 +11,235 @@ const LOADING_STEPS = [
   'Structuring your summary\u2026'
 ];
 
-let currentTab = null;
-let lastResult = null;
-let savedCode = '';
-let loadingInterval = null;
+let _savedResult = null;
+let _loadingInterval = null;
+let _currentTab = null;
 
-function showToast(msg, duration) {
-  duration = duration || 2000;
-  var el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('visible');
-  setTimeout(function() { el.classList.remove('visible'); }, duration);
+document.addEventListener('DOMContentLoaded', async function() {
+  var data = await chrome.storage.local.get(['nd_code']);
+  if (data.nd_code) {
+    document.getElementById('accessCode').value = data.nd_code;
+    showAuthStatus('\u2713 Distiller Pack code configured', 'ok');
+    collapseAuth();
+  }
+  try {
+    var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    _currentTab = tabs[0];
+    if (_currentTab && _currentTab.url) {
+      var short = _currentTab.url.length > 55 ? _currentTab.url.substring(0, 55) + '...' : _currentTab.url;
+      document.getElementById('pageUrl').textContent = '\ud83d\udcc4 ' + short;
+    }
+  } catch(e) {}
+
+  document.getElementById('authHeader').addEventListener('click', toggleAuth);
+  document.getElementById('saveCodeBtn').addEventListener('click', saveCode);
+  document.getElementById('testCodeBtn').addEventListener('click', testCode);
+  document.getElementById('checkBtn').addEventListener('click', checkCurrentPage);
+  document.getElementById('checkCustomBtn').addEventListener('click', checkCustomText);
+  document.getElementById('saveBtn').addEventListener('click', copyReport);
+  document.getElementById('newCheckBtn').addEventListener('click', resetResults);
+  document.getElementById('fullReportBtn').addEventListener('click', openFullReport);
+});
+
+function toggleAuth() {
+  var body = document.getElementById('authBody');
+  var toggle = document.getElementById('authToggle');
+  var hidden = body.style.display === 'none';
+  body.style.display = hidden ? 'block' : 'none';
+  toggle.textContent = hidden ? '\u25bc' : '\u25b6';
 }
-
 function collapseAuth() {
-  document.getElementById('accBody').classList.remove('open');
-  document.getElementById('accChevron').classList.remove('open');
+  document.getElementById('authBody').style.display = 'none';
+  document.getElementById('authToggle').textContent = '\u25b6';
 }
-
-function toggleAccess() {
-  var body = document.getElementById('accBody');
-  var chevron = document.getElementById('accChevron');
-  if (body.classList.contains('open')) {
-    body.classList.remove('open');
-    chevron.classList.remove('open');
-  } else {
-    body.classList.add('open');
-    chevron.classList.add('open');
-  }
+function expandAuth() {
+  document.getElementById('authBody').style.display = 'block';
+  document.getElementById('authToggle').textContent = '\u25bc';
 }
-
-function updateCodeBadge() {
-  var badge = document.getElementById('navCodeBadge');
-  var accStatus = document.getElementById('accStatusBadge');
-  if (savedCode) {
-    badge.textContent = 'Code \u2713';
-    badge.style.color = '#1D9E75';
-    accStatus.textContent = savedCode.substring(0, 4) + '....';
-    accStatus.style.color = '#1D9E75';
-  } else {
-    badge.textContent = 'No code';
-    badge.style.color = '#6688aa';
-    accStatus.textContent = 'No code';
-    accStatus.style.color = '#6688aa';
-  }
+function showAuthStatus(msg, type) {
+  var el = document.getElementById('authStatus');
+  el.textContent = msg;
+  el.className = 'auth-status ' + (type || '');
 }
 
 async function saveCode() {
-  var code = document.getElementById('codeInput').value.trim();
-  savedCode = code;
+  var code = document.getElementById('accessCode').value.trim();
+  if (!code) { showAuthStatus('Please enter a code', 'error'); return; }
   await chrome.storage.local.set({ nd_code: code });
-  updateCodeBadge();
-  showToast(code ? 'Code saved!' : 'Code cleared.');
+  showAuthStatus('\u2713 Code saved!', 'ok');
   setTimeout(collapseAuth, 800);
 }
 
 async function testCode() {
-  var code = document.getElementById('codeInput').value.trim() || savedCode;
-  if (!code) { showToast('No code to test.'); return; }
-  showToast('Testing...', 3000);
+  var code = document.getElementById('accessCode').value.trim();
+  if (!code) { showAuthStatus('Enter a code first', 'error'); return; }
+  showAuthStatus('Testing\u2026', '');
   try {
-    var resp = await fetch(API_BASE + '/api/validate-code', {
+    var r = await fetch(SERVER_URL + '/api/validate-code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: code })
     });
-    var d = await resp.json();
+    var d = await r.json();
     if (d.valid) {
       var rem = d.remaining != null ? d.remaining : null;
       var remStr = rem === -1 ? 'Unlimited uses.' : (rem != null ? rem + ' uses left.' : '');
-      showToast('\u2713 Valid code! ' + remStr, 3000);
+      showAuthStatus('\u2713 Valid code! ' + remStr, 'ok');
     } else {
-      showToast('\u2717 ' + (d.message || d.error || 'Code not recognized.'), 3000);
+      showAuthStatus('\u2717 ' + (d.message || d.error || 'Code not recognized.'), 'error');
     }
   } catch(e) {
-    showToast('Could not reach server.', 3000);
+    showAuthStatus('\u2717 Cannot connect to server', 'error');
   }
 }
 
-function startLoadingSteps() {
-  var si = 0;
-  document.getElementById('loadingStep').textContent = LOADING_STEPS[0];
-  loadingInterval = setInterval(function() {
-    si = (si + 1) % LOADING_STEPS.length;
-    document.getElementById('loadingStep').textContent = LOADING_STEPS[si];
-  }, 2000);
-}
-
-function stopLoadingSteps() {
-  if (loadingInterval) {
-    clearInterval(loadingInterval);
-    loadingInterval = null;
+async function getCode() {
+  var data = await chrome.storage.local.get(['nd_code']);
+  if (!data.nd_code) {
+    showError('Please save your Distiller Pack code first.');
+    expandAuth();
+    return null;
   }
+  return data.nd_code;
 }
 
-async function distillPage() {
+async function checkCurrentPage() {
+  var code = await getCode();
+  if (!code) return;
+  if (!_currentTab) { showError('Could not access current tab.'); return; }
   showLoading(true);
-  startLoadingSteps();
   hideError();
-  document.getElementById('resultsBox').classList.remove('visible');
+  hideResults();
+  try {
+    var results = await chrome.scripting.executeScript({
+      target: { tabId: _currentTab.id },
+      func: function() {
+        var selectors = ['article','[role="main"]','.article-content','.article-body',
+          '.post-content','.story-body','.entry-content','main','#main-content','#content'];
+        var text = '';
+        for (var i = 0; i < selectors.length; i++) {
+          var el = document.querySelector(selectors[i]);
+          if (el && el.innerText.length > 200) { text = el.innerText; break; }
+        }
+        if (!text) {
+          var clone = document.body.cloneNode(true);
+          clone.querySelectorAll('script,style,nav,footer,header,aside').forEach(function(e){e.remove();});
+          text = clone.innerText;
+        }
+        return 'Page Title: ' + document.title + '\nURL: ' + window.location.href + '\n\n' + text.replace(/\s+/g,' ').trim();
+      }
+    });
+    var pageText = results[0] && results[0].result;
+    if (!pageText) throw new Error('Could not extract text from page.');
+    await runDistill(pageText, code);
+  } catch(e) {
+    showError(e.message || 'Could not read page content.');
+    showLoading(false);
+  }
+}
+
+async function checkCustomText() {
+  var code = await getCode();
+  if (!code) return;
+  var text = document.getElementById('customText').value.trim();
+  if (!text) { showError('Please paste article text first.'); return; }
+  showLoading(true);
+  hideError();
+  hideResults();
+  await runDistill(text, code);
+}
+
+async function runDistill(text, code) {
+  _savedResult = null;
+  var chunkBuffer = '';
+  var summaryShown = false;
 
   try {
-    var pastedText = document.getElementById('pasteArea').value.trim();
-    var urlInput = document.getElementById('urlInput').value.trim();
-    var pageText = pastedText;
-
-    if (!pageText && currentTab) {
-      try {
-        var response;
-        try {
-          response = await chrome.tabs.sendMessage(currentTab.id, { action: 'getPageText' });
-        } catch(e) {
-          await chrome.scripting.executeScript({ target: { tabId: currentTab.id }, files: ['content.js'] });
-          response = await chrome.tabs.sendMessage(currentTab.id, { action: 'getPageText' });
-        }
-        if (response && response.text && response.text.length > 200) {
-          pageText = response.text;
-        }
-      } catch(e) {
-        console.log('Content script error:', e);
-      }
-    }
-
-    var body = { style: 'executive' };
-    if (savedCode) body.code = savedCode;
-
-    if (pageText) {
-      body.text = pageText;
-    } else if (urlInput) {
-      body.url = urlInput;
-    } else {
-      showError('Please paste article text or enter a URL.');
-      showLoading(false);
-      stopLoadingSteps();
-      return;
-    }
-
-    var resp = await fetch(API_BASE + '/api/distill', {
+    var resp = await fetch(SERVER_URL + '/api/distill', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify({ text: text.substring(0, 15000), code: code, style: 'executive' })
     });
 
     if (!resp.ok) {
-      var d = await resp.json();
-      if (d.error === 'free_exhausted') {
-        showError('Free distillations used up. Enter a Distiller Pack code or get one at pklmedialab.com.');
-      } else {
-        showError(d.error || d.message || 'Analysis failed. Please try again.');
+      var ed = await resp.json().catch(function(){ return {}; });
+      if (ed.error === 'free_exhausted') {
+        throw new Error('Free distillations used up. Get a Distiller Pack at pklmedialab.com');
       }
-      showLoading(false);
-      stopLoadingSteps();
-      return;
+      throw new Error(ed.error || ed.message || 'Analysis failed \u2014 please try again.');
     }
 
-    // SSE streaming — accumulate chunks, show summary progressively
     var reader = resp.body.getReader();
     var decoder = new TextDecoder();
-    var buffer = '';
-    var accumulated = '';
-    var summaryShown = false;
+    var buf = '';
 
-    while (true) {
-      var chunk = await reader.read();
-      if (chunk.done) break;
-      buffer += decoder.decode(chunk.value, { stream: true });
-      var lines = buffer.split('\n');
-      buffer = lines.pop();
+    function read() {
+      return reader.read().then(function(chunk) {
+        if (chunk.done) { showLoading(false); return; }
+        buf += decoder.decode(chunk.value, { stream: true });
+        var lines = buf.split('\n');
+        buf = lines.pop();
 
-      for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-        if (!line.startsWith('data: ')) continue;
-        var payload = line.slice(6).trim();
-        if (!payload) continue;
-        var msg;
-        try { msg = JSON.parse(payload); } catch(e) { continue; }
-        if (msg.error) { showError(msg.error); showLoading(false); stopLoadingSteps(); return; }
+        lines.forEach(function(line) {
+          if (!line.startsWith('data: ')) return;
+          var payload = line.slice(6).trim();
+          if (!payload) return;
+          var msg;
+          try { msg = JSON.parse(payload); } catch(e) { return; }
 
-        // Accumulate JSON chunks — same method as web app
-        if (msg.chunk) {
-          accumulated += msg.chunk;
-          if (!summaryShown) {
-            var sumKey = '"summary": "';
-            var sumStart = accumulated.indexOf(sumKey);
-            if (sumStart !== -1) {
-              var textStart = sumStart + sumKey.length;
-              var textEnd = textStart;
-              while (textEnd < accumulated.length) {
-                if (accumulated[textEnd] === '"' && accumulated[textEnd-1] !== '\\') break;
-                textEnd++;
-              }
-              var partial = accumulated.substring(textStart, textEnd);
-              if (partial.length > 20) {
-                document.getElementById('summaryEl').textContent = partial;
-                document.getElementById('resultsBox').classList.add('visible');
-                showLoading(false);
-                stopLoadingSteps();
-                summaryShown = true;
+          if (msg.error) { showError(msg.error); showLoading(false); return; }
+
+          // Accumulate chunks — extract summary as soon as it appears (web app pattern)
+          if (msg.chunk) {
+            chunkBuffer += msg.chunk;
+            if (!summaryShown) {
+              var sumKey = '"summary": "';
+              var sumStart = chunkBuffer.indexOf(sumKey);
+              if (sumStart !== -1) {
+                var textStart = sumStart + sumKey.length;
+                var textEnd = textStart;
+                while (textEnd < chunkBuffer.length) {
+                  if (chunkBuffer[textEnd] === '"' && chunkBuffer[textEnd-1] !== '\\') break;
+                  textEnd++;
+                }
+                var partial = chunkBuffer.substring(textStart, textEnd);
+                if (partial.length > 20) {
+                  document.getElementById('summaryText').textContent = partial;
+                  document.getElementById('summaryCard').style.display = 'block';
+                  document.getElementById('results').style.display = 'block';
+                  summaryShown = true;
+                  // Keep spinner going until done
+                }
               }
             }
           }
-        }
 
-        // Final done event with complete result
-        if (msg.done && msg.result) {
-          lastResult = msg.result;
-          renderResults(msg.result);
-          showLoading(false);
-          stopLoadingSteps();
-        }
-      }
+          // Final done event — render full results
+          if (msg.done && msg.result) {
+            _savedResult = msg.result;
+            renderResults(msg.result);
+            showLoading(false);
+          }
+        });
+        return read();
+      }).catch(function(e) {
+        showError('Network error \u2014 please try again.');
+        showLoading(false);
+      });
     }
+    await read();
   } catch(e) {
-    showError('Network error \u2014 please try again.');
-  } finally {
+    showError(e.message || 'Failed to connect \u2014 please try again.');
     showLoading(false);
-    stopLoadingSteps();
   }
 }
 
 function renderResults(r) {
-  document.getElementById('summaryEl').textContent = r.summary || '';
+  // Summary
+  document.getElementById('summaryText').textContent = r.summary || '';
+  document.getElementById('summaryCard').style.display = 'block';
 
-  // Exact field names from web app: r.lean, r.confidence, r.signals, r.caveat
+  // Political lean — exact field names: r.lean, r.confidence, r.signals, r.caveat
   if (r.lean) {
     var pct = LEAN_POSITIONS[r.lean] !== undefined ? LEAN_POSITIONS[r.lean] : 50;
     setTimeout(function() {
@@ -242,9 +248,9 @@ function renderResults(r) {
     document.getElementById('leanVerdict').textContent = r.lean;
 
     var conf = (r.confidence || 'low').toLowerCase();
-    var confEl = document.getElementById('leanConfidence');
+    var confEl = document.getElementById('confPill');
     confEl.textContent = (r.confidence || '') + ' confidence';
-    confEl.className = 'lean-confidence-badge conf-' + conf;
+    confEl.className = 'confidence-pill conf-' + conf;
 
     var signalsEl = document.getElementById('leanSignals');
     signalsEl.innerHTML = '';
@@ -254,115 +260,135 @@ function renderResults(r) {
       signalsEl.appendChild(li);
     });
 
-    var noteEl = document.getElementById('leanNote');
+    var caveatEl = document.getElementById('leanCaveat');
     if (r.caveat) {
-      noteEl.textContent = r.caveat;
-      noteEl.style.display = 'block';
+      caveatEl.textContent = r.caveat;
+      caveatEl.style.display = 'block';
     } else {
-      noteEl.style.display = 'none';
+      caveatEl.style.display = 'none';
     }
-
-    document.getElementById('leanSection').style.display = 'block';
+    document.getElementById('biasCard').style.display = 'block';
   } else {
-    document.getElementById('leanSection').style.display = 'none';
+    document.getElementById('biasCard').style.display = 'none';
   }
 
-  document.getElementById('resultsBox').classList.add('visible');
+  document.getElementById('results').style.display = 'block';
 }
 
+// Full report — generates HTML blob and opens in new tab (exactly like TruthPrism)
 function openFullReport() {
-  chrome.tabs.create({ url: API_BASE });
+  var d = _savedResult;
+  if (!d) return;
+  var timestamp = new Date().toLocaleString();
+
+  function esc(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  var sectionsHtml = '';
+  (d.sections || []).forEach(function(sec) {
+    if (!sec.points || !sec.points.length) return;
+    sectionsHtml += '<h2>' + esc(sec.title) + '</h2><ul style="margin:0 0 12px 0;padding-left:20px;">';
+    sec.points.forEach(function(pt) {
+      sectionsHtml += '<li style="font-size:13px;color:#333;line-height:1.7;margin-bottom:4px;">' + esc(pt) + '</li>';
+    });
+    sectionsHtml += '</ul>';
+  });
+
+  var leanHtml = '';
+  if (d.lean) {
+    leanHtml = '<h2>Political Lean Assessment</h2>' +
+      '<div style="background:#f0f4f8;border-radius:8px;padding:14px;margin-bottom:10px;">' +
+      '<div style="font-size:18px;font-weight:700;color:#1a2a3a;margin-bottom:6px;">' + esc(d.lean) +
+      (d.confidence ? ' <span style="font-size:11px;font-weight:400;color:#666;">(' + esc(d.confidence) + ' confidence)</span>' : '') + '</div>';
+    if (d.signals && d.signals.length) {
+      leanHtml += '<ul style="margin:0 0 8px 0;padding-left:16px;">';
+      d.signals.forEach(function(s) {
+        leanHtml += '<li style="font-size:12px;color:#444;margin-bottom:3px;">' + esc(s) + '</li>';
+      });
+      leanHtml += '</ul>';
+    }
+    if (d.caveat) {
+      leanHtml += '<p style="font-size:12px;color:#f0a000;font-style:italic;margin:0;">' + esc(d.caveat) + '</p>';
+    }
+    leanHtml += '</div>';
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<title>News-Distiller Report</title>' +
+    '<style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px;background:#f5f7fa;color:#1a2a3a;}' +
+    'h1{font-size:20px;margin-bottom:4px;}h2{font-size:14px;margin:18px 0 8px;color:#0D6E6E;border-bottom:1px solid #dde;padding-bottom:4px;}' +
+    '.summary{background:white;border:1px solid #dde;border-radius:8px;padding:14px;margin-bottom:10px;font-size:14px;line-height:1.8;color:#333;}' +
+    '.save-btn{display:inline-block;padding:10px 20px;background:#0D6E6E;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;margin:14px 0;}' +
+    '.meta{font-size:11px;color:#999;margin-top:20px;border-top:1px solid #dde;padding-top:10px;}</style></head><body>' +
+    '<h1>News-Distiller Analysis Report</h1>' +
+    '<p style="font-size:12px;color:#666;margin-bottom:16px;">' + timestamp + '</p>' +
+    '<h2>Executive Summary</h2>' +
+    '<div class="summary">' + esc(d.summary || '') + '</div>' +
+    sectionsHtml +
+    leanHtml +
+    '<button class="save-btn" onclick="saveIt()">💾 Save as Text File</button>' +
+    '<div class="meta">Generated by News-Distiller &mdash; app.news-distiller.com &mdash; Powered by Claude AI</div>' +
+    '<script>function saveIt(){' +
+    'var out="NEWS-DISTILLER REPORT\\nGenerated: ' + timestamp + '\\n\\n";' +
+    'out+=document.body.innerText;' +
+    'var a=document.createElement("a");a.href="data:text/plain;charset=utf-8,"+encodeURIComponent(out);' +
+    'a.download="news-distiller-report.txt";a.click();}' +
+    '<\\/script></body></html>';
+
+  var blob = new Blob([html], { type: 'text/html' });
+  chrome.tabs.create({ url: URL.createObjectURL(blob) });
 }
 
-async function copyResult() {
-  if (!lastResult) return;
-  var r = lastResult;
+async function copyReport() {
+  var d = _savedResult;
+  if (!d) return;
   var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n' +
-    (r.summary || '') + '\n\n';
-  if (r.lean) {
-    text += 'Political Lean: ' + r.lean + (r.confidence ? ' (' + r.confidence + ' confidence)' : '') + '\n';
-    (r.signals || []).forEach(function(s) { text += '  \u203a ' + s + '\n'; });
-    if (r.caveat) text += '\n' + r.caveat + '\n';
+    (d.summary || '') + '\n\n';
+  if (d.lean) {
+    text += 'Political Lean: ' + d.lean;
+    if (d.confidence) text += ' (' + d.confidence + ' confidence)';
+    text += '\n';
+    (d.signals || []).forEach(function(s) { text += '  \u203a ' + s + '\n'; });
+    if (d.caveat) text += '\n' + d.caveat + '\n';
   }
   text += '\nDistilled by News-Distiller (app.news-distiller.com)\n';
   try {
     await navigator.clipboard.writeText(text);
-    showToast('Summary copied to clipboard!');
-  } catch(e) {
-    showToast('Could not copy \u2014 use the Web App.');
-  }
+    document.getElementById('saveBtn').textContent = '\u2713 Copied!';
+    setTimeout(function() { document.getElementById('saveBtn').textContent = '\ud83d\udccb Copy'; }, 2000);
+  } catch(e) {}
 }
 
-async function shareResult() {
-  if (!lastResult) return;
-  var r = lastResult;
-  var text = 'NEWS-DISTILLER SUMMARY\n\n' +
-    (r.summary || '') + '\n\n' +
-    (r.lean ? 'Political Lean: ' + r.lean + '\n\n' : '') +
-    'Distilled by News-Distiller (app.news-distiller.com)';
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: 'News-Distiller Summary', text: text });
-    } catch(e) { copyResult(); }
-  } else {
-    copyResult();
-  }
-}
-
-function resetUI() {
-  document.getElementById('resultsBox').classList.remove('visible');
-  document.getElementById('pasteArea').value = '';
-  document.getElementById('urlInput').value = '';
-  document.getElementById('charCount').textContent = '0 chars \u00b7 ~0 words';
-  hideError();
-  lastResult = null;
+function resetResults() {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('summaryCard').style.display = 'none';
+  document.getElementById('biasCard').style.display = 'none';
+  document.getElementById('errorMsg').style.display = 'none';
+  document.getElementById('customText').value = '';
+  _savedResult = null;
 }
 
 function showLoading(on) {
-  document.getElementById('loadingBox').classList.toggle('visible', on);
-  document.getElementById('distillBtn').disabled = on;
+  document.getElementById('loading').style.display = on ? 'block' : 'none';
+  document.getElementById('checkBtn').style.display = on ? 'none' : 'block';
+  document.getElementById('checkCustomBtn').disabled = on;
+  if (on) {
+    var si = 0;
+    document.getElementById('loadingStep').textContent = LOADING_STEPS[0];
+    _loadingInterval = setInterval(function() {
+      si = (si + 1) % LOADING_STEPS.length;
+      document.getElementById('loadingStep').textContent = LOADING_STEPS[si];
+    }, 2000);
+  } else {
+    if (_loadingInterval) { clearInterval(_loadingInterval); _loadingInterval = null; }
+  }
 }
 function showError(msg) {
-  var el = document.getElementById('errorBox');
+  var el = document.getElementById('errorMsg');
   el.textContent = msg;
-  el.classList.add('visible');
+  el.style.display = 'block';
+  showLoading(false);
 }
-function hideError() {
-  document.getElementById('errorBox').classList.remove('visible');
-}
-
-document.addEventListener('DOMContentLoaded', async function() {
-  document.getElementById('navCodeBadge').addEventListener('click', toggleAccess);
-  document.getElementById('accHeader').addEventListener('click', toggleAccess);
-  document.getElementById('saveCodeBtn').addEventListener('click', saveCode);
-  document.getElementById('testCodeBtn').addEventListener('click', testCode);
-  document.getElementById('distillBtn').addEventListener('click', distillPage);
-  document.getElementById('saveBtn').addEventListener('click', copyResult);
-  document.getElementById('shareBtn').addEventListener('click', shareResult);
-  document.getElementById('fullReportBtn').addEventListener('click', openFullReport);
-  document.getElementById('newBtn').addEventListener('click', resetUI);
-
-  document.getElementById('pasteArea').addEventListener('input', function() {
-    var text = this.value;
-    var chars = text.length;
-    var words = text.trim() ? text.trim().split(/\s+/).length : 0;
-    document.getElementById('charCount').textContent = chars + ' chars \u00b7 ~' + words + ' words';
-  });
-
-  var stored = await chrome.storage.local.get('nd_code');
-  savedCode = stored.nd_code || '';
-  if (savedCode) {
-    document.getElementById('codeInput').value = savedCode;
-  }
-  updateCodeBadge();
-
-  try {
-    var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    currentTab = tabs[0];
-    if (currentTab && currentTab.url && currentTab.url.startsWith('http')) {
-      document.getElementById('urlInput').value = currentTab.url;
-    }
-  } catch(e) {
-    console.log('Tab query error:', e);
-  }
-});
+function hideError() { document.getElementById('errorMsg').style.display = 'none'; }
+function hideResults() { document.getElementById('results').style.display = 'none'; }

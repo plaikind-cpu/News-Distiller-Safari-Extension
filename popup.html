@@ -5,178 +5,143 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>News-Distiller</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0d1b2a; --card: #162030; --border: #2a3a50;
-      --teal: #0D6E6E; --teal2: #11998E; --teal-light: rgba(13,110,110,0.15);
-      --text: #c0d0e0; --text2: #6688aa; --yellow: #f0c040;
-      --green: #1D9E75; --orange: #cc8800;
-    }
-    body { width: 380px; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; overflow-x: hidden; }
-    .nav { background: rgba(13,27,42,0.95); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; }
-    .nav-logo { display: flex; align-items: center; gap: 8px; }
-    .nav-logo img { width: 28px; height: 28px; border-radius: 6px; }
-    .nav-title { font-size: 13px; font-weight: 700; color: #e0e8f0; }
-    .nav-sub { font-size: 9px; color: var(--text2); }
-    .nav-links { display: flex; gap: 10px; align-items: center; }
-    .nav-links a { font-size: 10px; color: var(--text2); text-decoration: none; padding: 3px 7px; border-radius: 8px; border: 1px solid transparent; }
-    .code-badge { background: var(--teal-light); color: var(--teal2); border: 1px solid var(--teal); border-radius: 8px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer; }
-    .splash { width: 100%; display: block; }
-    .section { margin: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-    .acc-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer; }
-    .acc-label { font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; }
-    .acc-status { font-size: 10px; color: var(--green); font-weight: 600; }
-    .acc-chevron { font-size: 10px; color: var(--text2); transition: transform 0.2s; }
-    .acc-chevron.open { transform: rotate(180deg); }
-    .acc-body { padding: 0 12px 10px; display: none; }
-    .acc-body.open { display: block; }
-    .acc-row { display: flex; gap: 6px; margin-bottom: 6px; }
-    .acc-input { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 11px; padding: 6px 8px; font-family: monospace; outline: none; }
-    .acc-input:focus { border-color: var(--teal); }
-    .btn-xs { background: var(--teal-light); color: var(--teal2); border: 1px solid var(--teal); border-radius: 5px; padding: 5px 10px; font-size: 10px; font-weight: 600; cursor: pointer; }
-    .acc-hint { font-size: 10px; color: var(--text2); }
-    .acc-hint a { color: #a0d4ff; text-decoration: none; }
-    .input-section { padding: 10px 12px; }
-    .input-label { font-size: 9px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-    .url-input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; padding: 8px 10px; outline: none; margin-bottom: 6px; }
-    .url-input:focus { border-color: var(--teal); }
-    .paywall-warning { background: #2a1f00; border: 1px solid #4a3a00; border-radius: 6px; padding: 6px 10px; font-size: 10px; color: var(--orange); margin-bottom: 6px; }
-    .or-sep { text-align: center; font-size: 10px; color: var(--text2); margin: 6px 0; }
-    .paste-label { font-size: 9px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
-    .paste-area { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 11px; padding: 8px 10px; resize: vertical; outline: none; min-height: 70px; max-height: 160px; }
-    .paste-area:focus { border-color: var(--teal); }
-    .char-count { font-size: 9px; color: var(--text2); text-align: right; margin-top: 3px; }
-    .btn-distill { display: block; width: calc(100% - 24px); margin: 0 12px 12px; background: linear-gradient(135deg, var(--teal) 0%, var(--teal2) 100%); color: white; border: none; border-radius: 8px; padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer; }
-    .btn-distill:disabled { opacity: 0.4; cursor: default; }
-    .error-box { margin: 0 12px 10px; background: #2a1010; border: 1px solid #4a2020; border-radius: 8px; padding: 8px 12px; font-size: 11px; color: #cc6666; display: none; }
-    .error-box.visible { display: block; }
-    /* Loading with rotating steps */
-    .loading { text-align: center; padding: 20px; display: none; }
-    .loading.visible { display: block; }
-    .spinner { width: 28px; height: 28px; border: 3px solid rgba(13,110,110,0.2); border-top-color: var(--teal2); border-radius: 50%; animation: spin 0.85s linear infinite; margin: 0 auto 10px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 380px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0D1525; color: #e0e8f0; }
+    .header-links { display: flex; justify-content: flex-end; gap: 6px; padding: 6px 10px; background: #0D1525; border-bottom: 1px solid #1a2a40; }
+    .header-links a { padding: 3px 10px; background: rgba(13,110,110,0.15); border: 1px solid rgba(13,110,110,0.4); border-radius: 20px; color: #11998E; font-size: 11px; font-weight: 600; text-decoration: none; }
+    .header-links a:hover { background: rgba(13,110,110,0.3); }
+    .content { padding: 12px; }
+    .auth-card { background: #162030; border: 1px solid #2a3a50; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+    .auth-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+    .auth-header-left { font-size: 11px; font-weight: 600; color: #88aacc; text-transform: uppercase; letter-spacing: 0.5px; }
+    .auth-toggle { font-size: 10px; color: #4a6a8a; }
+    .auth-body { margin-top: 8px; }
+    .auth-row { display: flex; gap: 6px; margin-bottom: 6px; }
+    .code-input { flex: 1; padding: 7px 10px; border: 1px solid #2a3a50; border-radius: 6px; font-size: 12px; background: #0D1525; color: white; outline: none; font-family: monospace; }
+    .code-input:focus { border-color: #0D6E6E; }
+    .code-input::placeholder { color: #3a5070; font-family: sans-serif; }
+    .btn-sm { padding: 7px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .btn-save { background: #0D6E6E; color: white; }
+    .btn-test { background: #1D9E75; color: white; }
+    .auth-status { font-size: 11px; color: #6688aa; min-height: 14px; }
+    .auth-status.ok { color: #1D9E75; }
+    .auth-status.error { color: #e53e3e; }
+    .trial-link { font-size: 10px; color: #11998E; text-decoration: none; margin-top: 4px; display: inline-block; }
+    .trial-link:hover { text-decoration: underline; }
+    .page-url { font-size: 10px; color: #3a5070; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .paywall-warning { background: #2a1f00; border: 1px solid #4a3a00; border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #cc8800; margin-bottom: 8px; }
+    .check-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #0D6E6E 0%, #11998E 100%); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+    .check-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .or-divider { text-align: center; color: #3a5070; font-size: 11px; margin: 4px 0 8px; }
+    .custom-label { font-size: 11px; color: #6688aa; display: block; margin-bottom: 4px; font-weight: 500; }
+    .custom-text { width: 100%; min-height: 70px; padding: 8px; border: 1px solid #2a3a50; border-radius: 6px; font-size: 11px; font-family: inherit; resize: vertical; margin-bottom: 6px; background: #0D1525; color: #e0e8f0; }
+    .custom-text:focus { outline: none; border-color: #0D6E6E; }
+    .check-custom-btn { width: 100%; padding: 9px; background: linear-gradient(135deg, #0D6E6E 0%, #11998E 100%); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .check-custom-btn:disabled { opacity: 0.4; }
+    .loading { display: none; text-align: center; padding: 16px; color: #6688aa; }
+    .spinner { width: 26px; height: 26px; border: 3px solid #2a3a50; border-top: 3px solid #0D6E6E; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-step { font-size: 11px; color: var(--text2); min-height: 16px; transition: opacity 0.3s; }
-    /* Results */
-    .results { display: none; padding: 0 12px 12px; }
-    .results.visible { display: block; }
-    .result-section { margin-bottom: 12px; }
-    .result-label { font-size: 9px; font-weight: 700; color: var(--yellow); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-    .summary-text { font-size: 12px; color: #d0e0f0; line-height: 1.7; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-    /* Lean section */
-    .lean-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .lean-confidence-badge { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+    .loading-step { font-size: 12px; color: #6688aa; }
+    .error-msg { display: none; background: #2a1010; border: 1px solid #6a2020; border-radius: 6px; padding: 8px 10px; font-size: 11px; color: #f08080; margin-bottom: 8px; }
+    .remaining-banner { font-size: 10px; text-align: center; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; display: none; }
+    .results { display: none; }
+    .result-card { background: #162030; border: 1px solid #2a3a50; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+    .result-title { font-size: 10px; font-weight: 600; color: #f0c040; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .result-text { font-size: 12px; color: #c0d0e0; line-height: 1.7; }
+    .bias-card { background: #0f1e30; border: 1px solid #2a3a50; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+    .bias-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .bias-title { font-size: 10px; font-weight: 600; color: #f0c040; text-transform: uppercase; letter-spacing: 0.5px; }
+    .confidence-pill { font-size: 9px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
     .conf-low { background: #2a2000; color: #cc8800; }
     .conf-medium { background: #0a2030; color: #4da6ff; }
     .conf-high { background: #0a2820; color: #1D9E75; }
-    .lean-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--text2); margin-bottom: 4px; }
-    .lean-meter { position: relative; height: 14px; border-radius: 7px; background: linear-gradient(to right, #2040a0, #3060c0, #888, #c06030, #a02020); margin-bottom: 6px; }
-    .lean-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: white; border: 2px solid var(--bg); box-shadow: 0 0 0 2px white; transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .lean-labels { display: flex; justify-content: space-between; font-size: 9px; color: #4a6080; margin-bottom: 6px; }
+    .lean-meter { position: relative; height: 16px; border-radius: 8px; background: linear-gradient(to right, #2040a0, #3060c0, #888, #c06030, #a02020); margin-bottom: 8px; }
+    .lean-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: white; border: 2px solid #0D1525; box-shadow: 0 0 0 2px white; transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
     .lean-verdict { font-size: 14px; font-weight: 700; color: #e0e8f0; text-align: center; margin-bottom: 8px; }
     .lean-signals { list-style: none; margin-bottom: 6px; }
-    .lean-signals li { font-size: 10px; color: var(--text2); line-height: 1.5; padding: 2px 0 2px 12px; position: relative; }
-    .lean-signals li::before { content: '\203a'; position: absolute; left: 0; color: var(--text2); }
-    .lean-note { font-size: 10px; color: var(--yellow); font-style: italic; line-height: 1.4; padding-top: 6px; border-top: 1px solid var(--border); }
-    /* Action buttons */
-    .action-row { display: flex; gap: 5px; margin-top: 10px; }
-    .btn-action { flex: 1; min-width: 55px; padding: 8px 4px; border: none; border-radius: 7px; font-size: 9px; font-weight: 600; cursor: pointer; }
-    .btn-save { background: linear-gradient(135deg, var(--teal), var(--teal2)); color: white; }
-    .btn-share { background: rgba(13,110,110,0.2); color: var(--teal2); border: 1px solid var(--teal); }
-    .btn-full { background: rgba(102,126,234,0.15); color: #a0b4ff; border: 1px solid rgba(102,126,234,0.3); }
-    .btn-new { background: rgba(255,255,255,0.05); color: var(--text2); border: 1px solid var(--border); }
-    .toast { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); background: var(--green); color: white; border-radius: 8px; padding: 6px 16px; font-size: 11px; font-weight: 600; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; white-space: nowrap; }
-    .toast.visible { opacity: 1; }
-    .footer { text-align: center; padding: 8px; font-size: 9px; color: var(--text2); }
-    .footer a { color: var(--text2); text-decoration: none; }
+    .lean-signals li { font-size: 11px; color: #a0b4c8; padding: 3px 0; display: flex; gap: 6px; }
+    .lean-signals li::before { content: '\203a'; color: #4a6080; flex-shrink: 0; }
+    .lean-caveat { font-size: 11px; color: #f0c040; font-style: italic; margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a3a50; }
+    .btn-row { display: flex; gap: 6px; margin-top: 8px; }
+    .btn-action { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .btn-full { background: #0D6E6E; color: white; }
+    .btn-copy { background: rgba(13,110,110,0.2); color: #11998E; border: 1px solid #0D6E6E; }
+    .btn-new { background: #2a3a50; color: #88aacc; }
   </style>
 </head>
 <body>
-  <div class="nav">
-    <div class="nav-logo">
-      <img src="images/icon48.png" alt="ND" onerror="this.style.display='none'"/>
-      <div>
-        <div class="nav-title">News-Distiller</div>
-        <div class="nav-sub">BY PAUL LAIKIND, PHD</div>
+  <img src="images/splash.png" alt="News-Distiller" style="width:100%;display:block;max-height:110px;object-fit:cover;object-position:center top;" onerror="this.style.display='none'">
+
+  <div class="header-links">
+    <a href="https://app.news-distiller.com/help.html" target="_blank">❓ Help</a>
+    <a href="https://pklmedialab.com" target="_blank">🌐 PKLMediaLab</a>
+  </div>
+
+  <div class="content">
+    <div class="auth-card">
+      <div class="auth-header" id="authHeader">
+        <span class="auth-header-left">Access Code</span>
+        <span class="auth-toggle" id="authToggle">▼</span>
+      </div>
+      <div class="auth-body" id="authBody">
+        <div class="auth-row">
+          <input type="text" class="code-input" id="accessCode" placeholder="Enter Distiller Pack code..."
+            autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+          <button class="btn-sm btn-save" id="saveCodeBtn">Save</button>
+          <button class="btn-sm btn-test" id="testCodeBtn">Test</button>
+        </div>
+        <div class="auth-status" id="authStatus">Enter your Distiller Pack code to get started</div>
+        <a href="https://pklmedialab.com/nd-get-started.html" target="_blank" class="trial-link">Need a code? Get a Distiller Pack →</a>
       </div>
     </div>
-    <div class="nav-links">
-      <span class="code-badge" id="navCodeBadge">Code ✓</span>
-      <a href="https://app.news-distiller.com/help.html" target="_blank">Help</a>
-      <a href="https://pklmedialab.com" target="_blank">PKLMediaLab</a>
-    </div>
-  </div>
 
-  <img src="images/splash.png" alt="" class="splash" onerror="this.style.display='none'"/>
+    <div class="remaining-banner" id="remainingBanner"></div>
+    <div class="page-url" id="pageUrl">Loading...</div>
+    <div class="paywall-warning">⚠ Paywalled articles (NYT, WSJ, etc.) cannot be retrieved by URL. Paste the article text below instead.</div>
+    <div class="error-msg" id="errorMsg"></div>
 
-  <div class="section">
-    <div class="acc-header" id="accHeader">
-      <span class="acc-label">Access Code</span>
-      <span class="acc-status" id="accStatusBadge">No code</span>
-      <span class="acc-chevron" id="accChevron">▼</span>
+    <button class="check-btn" id="checkBtn">🔍 Distill This Page</button>
+    <div class="or-divider">— OR —</div>
+    <label class="custom-label">Paste Article or Text:</label>
+    <textarea class="custom-text" id="customText" placeholder="Paste any article, news story, or document..."></textarea>
+    <button class="check-custom-btn" id="checkCustomBtn">🔍 Distill This Text</button>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-step" id="loadingStep">Reading and analyzing content…</div>
     </div>
-    <div class="acc-body" id="accBody">
-      <div class="acc-row">
-        <input class="acc-input" type="text" id="codeInput" placeholder="Enter Distiller Pack code..." autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
-        <button class="btn-xs" id="saveCodeBtn">Save</button>
-        <button class="btn-xs" id="testCodeBtn">Test</button>
+
+    <div class="results" id="results">
+      <div class="result-card" id="summaryCard" style="display:none;">
+        <div class="result-title">Executive Summary</div>
+        <div class="result-text" id="summaryText"></div>
       </div>
-      <div class="acc-hint">Need a code? <a href="https://pklmedialab.com/nd-get-started.html" target="_blank">Get a Distiller Pack →</a></div>
-    </div>
-  </div>
 
-  <div class="section">
-    <div class="input-section">
-      <div class="input-label">Check a URL</div>
-      <input class="url-input" type="url" id="urlInput" placeholder="https://..."/>
-      <div class="paywall-warning">⚠ Paywalled articles (NYT, WSJ, etc.) cannot be retrieved by URL. Paste the article text directly instead.</div>
-      <div class="or-sep">— OR —</div>
-      <div class="paste-label">Paste Article or Text</div>
-      <textarea class="paste-area" id="pasteArea" placeholder="Paste any article, news story, or document..."></textarea>
-      <div class="char-count" id="charCount">0 chars · ~0 words</div>
-    </div>
-  </div>
-
-  <button class="btn-distill" id="distillBtn">Distill It →</button>
-
-  <div class="error-box" id="errorBox"></div>
-
-  <div class="loading" id="loadingBox">
-    <div class="spinner"></div>
-    <div class="loading-step" id="loadingStep">Reading and analyzing content…</div>
-  </div>
-
-  <div class="results" id="resultsBox">
-    <div class="result-section">
-      <div class="result-label">Executive Summary</div>
-      <div class="summary-text" id="summaryEl"></div>
-    </div>
-
-    <div class="result-section" id="leanSection" style="display:none;">
-      <div class="lean-header">
-        <div class="result-label">Political Lean Assessment</div>
-        <span class="lean-confidence-badge" id="leanConfidence"></span>
+      <div class="bias-card" id="biasCard" style="display:none;">
+        <div class="bias-header">
+          <div class="bias-title">Political Lean Assessment</div>
+          <span class="confidence-pill" id="confPill"></span>
+        </div>
+        <div class="lean-labels">
+          <span>Left</span><span>Center-Left</span><span>Center</span><span>Center-Right</span><span>Right</span>
+        </div>
+        <div class="lean-meter">
+          <div class="lean-marker" id="leanMarker" style="left:50%"></div>
+        </div>
+        <div class="lean-verdict" id="leanVerdict"></div>
+        <ul class="lean-signals" id="leanSignals"></ul>
+        <div class="lean-caveat" id="leanCaveat" style="display:none;"></div>
       </div>
-      <div class="lean-labels"><span>Left</span><span>Center-Left</span><span>Center</span><span>Center-Right</span><span>Right</span></div>
-      <div class="lean-meter">
-        <div class="lean-marker" id="leanMarker" style="left:50%"></div>
+
+      <div class="btn-row">
+        <button class="btn-action btn-full" id="fullReportBtn">📄 Full Report</button>
+        <button class="btn-action btn-copy" id="saveBtn">📋 Copy</button>
+        <button class="btn-action btn-new" id="newCheckBtn">New</button>
       </div>
-      <div class="lean-verdict" id="leanVerdict"></div>
-      <ul class="lean-signals" id="leanSignals"></ul>
-      <div class="lean-note" id="leanNote" style="display:none;"></div>
-    </div>
-
-    <div class="action-row">
-      <button class="btn-action btn-save" id="saveBtn">📋 Copy</button>
-      <button class="btn-action btn-share" id="shareBtn">📤 Share</button>
-      <button class="btn-action btn-full" id="fullReportBtn">🌐 Full</button>
-      <button class="btn-action btn-new" id="newBtn">New</button>
     </div>
   </div>
 
-  <div class="footer">
-    News-Distiller uses Claude AI · <a href="https://app.news-distiller.com/privacy" target="_blank">Privacy</a>
-  </div>
-
-  <div class="toast" id="toast"></div>
   <script src="popup.js"></script>
 </body>
 </html>
