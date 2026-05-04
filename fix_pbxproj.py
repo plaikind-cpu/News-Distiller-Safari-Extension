@@ -1,6 +1,7 @@
-import re, subprocess, sys
+import re, subprocess, time
 PBXPROJ = "build/News-Distiller/News-Distiller.xcodeproj/project.pbxproj"
 TEAM_ID = "4FPWPSM7JG"
+BUILD_NUM = str(int(time.time()))
 f = open(PBXPROJ, "r")
 content = f.read()
 f.close()
@@ -10,10 +11,11 @@ content = re.sub(r'com\.pklmedialab\.News-Distiller\b', 'com.pklmedialab.news-di
 content = content.replace('CODE_SIGN_STYLE = Automatic;', 'CODE_SIGN_STYLE = Manual;')
 content = re.sub(r'\s*PROVISIONING_PROFILE_SPECIFIER = [^;]*;', '', content)
 content = re.sub(r'\s*DEVELOPMENT_TEAM = [^;]*;', '', content)
+content = re.sub(r'\s*CURRENT_PROJECT_VERSION = [^;]*;', '', content)
 EXT_BUNDLE = 'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller.extension";'
-EXT_REPLACE = EXT_BUNDLE + '\n\t\t\t\tDEVELOPMENT_TEAM = ' + TEAM_ID + ';\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Extension-Distribution";'
+EXT_REPLACE = EXT_BUNDLE + '\n\t\t\t\tCURRENT_PROJECT_VERSION = ' + BUILD_NUM + ';\n\t\t\t\tDEVELOPMENT_TEAM = ' + TEAM_ID + ';\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Extension-Distribution";'
 APP_BUNDLE = 'PRODUCT_BUNDLE_IDENTIFIER = "com.pklmedialab.news-distiller";'
-APP_REPLACE = APP_BUNDLE + '\n\t\t\t\tDEVELOPMENT_TEAM = ' + TEAM_ID + ';\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Distribution";'
+APP_REPLACE = APP_BUNDLE + '\n\t\t\t\tCURRENT_PROJECT_VERSION = ' + BUILD_NUM + ';\n\t\t\t\tDEVELOPMENT_TEAM = ' + TEAM_ID + ';\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "News-Distiller-Distribution";'
 content = content.replace(EXT_BUNDLE, EXT_REPLACE)
 content = content.replace(APP_BUNDLE, APP_REPLACE)
 content = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [\d.]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 16.0;', content)
@@ -22,5 +24,6 @@ f.write(content)
 f.close()
 ext_count = content.count('News-Distiller-Extension-Distribution')
 app_count = content.count('News-Distiller-Distribution') - ext_count
+print("Build number:", BUILD_NUM)
 print("Extension profile count:", ext_count)
 print("Main app profile count:", app_count)
