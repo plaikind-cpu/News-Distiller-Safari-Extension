@@ -4,136 +4,175 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>News-Distiller</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1b2a;
+      --bg2: #1a2a3a;
+      --card: #162030;
+      --border: #2a3a50;
+      --teal: #0D6E6E;
+      --teal2: #11998E;
+      --teal-light: rgba(13,110,110,0.15);
+      --text: #c0d0e0;
+      --text2: #6688aa;
+      --yellow: #f0c040;
+      --green: #1D9E75;
+      --red: #cc4444;
+      --orange: #cc8800;
+    }
     body {
-      width: 340px;
-      min-height: 400px;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      color: #c0d0e0;
+      width: 380px;
+      background: var(--bg);
+      color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 13px;
+      overflow-x: hidden;
     }
 
-    /* Splash */
-    .splash {
-      width: 100%;
-      display: block;
-      border-bottom: 1px solid rgba(102,126,234,0.3);
-    }
-
-    /* Header */
-    .header {
-      padding: 10px 14px 8px;
-      border-bottom: 1px solid rgba(102,126,234,0.2);
+    /* NAV */
+    .nav {
+      background: rgba(13,27,42,0.95);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .header-title { font-size: 14px; font-weight: 700; color: #e0e8f0; }
-    .header-sub { font-size: 10px; color: #6688aa; }
-    .web-app-btn {
-      font-size: 10px; color: #a0b4ff;
-      background: rgba(102,126,234,0.15);
-      border: 1px solid rgba(102,126,234,0.3);
-      border-radius: 10px; padding: 3px 8px;
-      text-decoration: none; cursor: pointer;
+    .nav-logo { display: flex; align-items: center; gap: 8px; }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 6px; }
+    .nav-title { font-size: 13px; font-weight: 700; color: #e0e8f0; }
+    .nav-sub { font-size: 9px; color: var(--text2); }
+    .nav-links { display: flex; gap: 10px; align-items: center; }
+    .nav-links a {
+      font-size: 10px; color: var(--text2); text-decoration: none;
+      padding: 3px 7px; border-radius: 8px;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .nav-links a:hover { color: var(--teal2); border-color: var(--teal); }
+    .nav-links .code-badge {
+      background: var(--teal-light); color: var(--teal2);
+      border: 1px solid var(--teal); border-radius: 8px;
+      padding: 2px 8px; font-size: 10px; font-weight: 600;
+      cursor: pointer;
     }
 
-    /* Body */
-    .body { padding: 12px 14px; }
+    /* SPLASH */
+    .splash { width: 100%; display: block; }
 
-    /* Auth */
-    .auth-row {
-      display: flex; gap: 6px; margin-bottom: 10px; align-items: center;
+    /* SECTIONS */
+    .section {
+      margin: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
     }
-    .auth-row input {
-      flex: 1;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid #2a3a50;
-      border-radius: 6px; color: #c0d0e0;
-      font-size: 11px; padding: 6px 8px;
+
+    /* ACCESS CODE */
+    .acc-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; cursor: pointer;
+    }
+    .acc-label { font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; }
+    .acc-status { font-size: 10px; color: var(--green); font-weight: 600; }
+    .acc-chevron { font-size: 10px; color: var(--text2); transition: transform 0.2s; }
+    .acc-chevron.open { transform: rotate(180deg); }
+    .acc-body { padding: 0 12px 10px; display: none; }
+    .acc-body.open { display: block; }
+    .acc-row { display: flex; gap: 6px; margin-bottom: 6px; }
+    .acc-input {
+      flex: 1; background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 11px; padding: 6px 8px;
       font-family: monospace; outline: none;
     }
-    .auth-row input:focus { border-color: #667eea; }
-    .btn-sm {
-      background: rgba(102,126,234,0.2);
-      color: #a0b4ff; border: 1px solid rgba(102,126,234,0.3);
-      border-radius: 5px; padding: 5px 10px;
-      font-size: 10px; font-weight: 600; cursor: pointer;
+    .acc-input:focus { border-color: var(--teal); }
+    .btn-xs {
+      background: var(--teal-light); color: var(--teal2);
+      border: 1px solid var(--teal); border-radius: 5px;
+      padding: 5px 10px; font-size: 10px; font-weight: 600; cursor: pointer;
     }
-    .code-status { font-size: 10px; color: #4a6080; margin-bottom: 10px; }
-    .code-status.ok { color: #1D9E75; }
-    .code-status.err { color: #cc4444; }
+    .btn-xs:hover { background: rgba(13,110,110,0.3); }
+    .acc-hint { font-size: 10px; color: var(--text2); }
+    .acc-hint a { color: #a0d4ff; text-decoration: none; }
 
-    /* URL display */
-    .url-display {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid #2a3a50;
-      border-radius: 6px; padding: 7px 10px;
-      font-size: 10px; color: #6688aa;
-      margin-bottom: 10px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    /* INPUT AREA */
+    .input-section { padding: 10px 12px; }
+    .input-label { font-size: 9px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+    .url-input {
+      width: 100%; background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 12px; padding: 8px 10px;
+      outline: none; margin-bottom: 6px;
     }
+    .url-input:focus { border-color: var(--teal); }
+    .paywall-warning {
+      background: #2a1f00; border: 1px solid #4a3a00;
+      border-radius: 6px; padding: 6px 10px;
+      font-size: 10px; color: var(--orange); margin-bottom: 6px;
+    }
+    .or-sep { text-align: center; font-size: 10px; color: var(--text2); margin: 6px 0; }
+    .paste-label { font-size: 9px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .paste-area {
+      width: 100%; background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 11px; padding: 8px 10px;
+      font-family: -apple-system, sans-serif; resize: vertical;
+      outline: none; min-height: 70px; max-height: 160px;
+    }
+    .paste-area:focus { border-color: var(--teal); }
+    .char-count { font-size: 9px; color: var(--text2); text-align: right; margin-top: 3px; }
 
-    /* Distill button */
+    /* DISTILL BUTTON */
     .btn-distill {
-      width: 100%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: block; width: calc(100% - 24px); margin: 0 12px 12px;
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal2) 100%);
       color: white; border: none; border-radius: 8px;
-      padding: 10px; font-size: 13px; font-weight: 700;
+      padding: 11px; font-size: 13px; font-weight: 700;
       cursor: pointer; transition: opacity 0.2s;
-      margin-bottom: 10px;
     }
     .btn-distill:hover { opacity: 0.88; }
     .btn-distill:disabled { opacity: 0.4; cursor: default; }
 
-    /* Warning */
-    .warning {
-      background: #2a1f00; border: 1px solid #4a3a00;
-      border-radius: 6px; padding: 7px 10px;
-      font-size: 10px; color: #cc8800; margin-bottom: 10px;
-      display: none;
-    }
-    .warning.visible { display: block; }
-
-    /* Error */
+    /* ERROR / WARNING */
     .error-box {
-      background: #2a1010; border: 1px solid #4a2020;
-      border-radius: 6px; padding: 7px 10px;
-      font-size: 11px; color: #cc6666;
-      margin-bottom: 10px; display: none;
+      margin: 0 12px 10px; background: #2a1010;
+      border: 1px solid #4a2020; border-radius: 8px;
+      padding: 8px 12px; font-size: 11px; color: #cc6666; display: none;
     }
     .error-box.visible { display: block; }
 
-    /* Loading */
+    /* LOADING */
     .loading { text-align: center; padding: 20px; display: none; }
     .loading.visible { display: block; }
     .spinner {
-      width: 24px; height: 24px;
-      border: 3px solid rgba(102,126,234,0.2); border-top-color: #667eea;
+      width: 28px; height: 28px;
+      border: 3px solid rgba(13,110,110,0.2); border-top-color: var(--teal2);
       border-radius: 50%; animation: spin 0.85s linear infinite;
       margin: 0 auto 8px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-text { font-size: 11px; color: #6688aa; }
+    .loading-text { font-size: 11px; color: var(--text2); }
 
-    /* Results */
-    .results { display: none; }
+    /* RESULTS */
+    .results { display: none; padding: 0 12px 12px; }
     .results.visible { display: block; }
-
+    .result-section { margin-bottom: 12px; }
     .result-label {
-      font-size: 9px; font-weight: 700; color: #f0c040;
+      font-size: 9px; font-weight: 700; color: var(--yellow);
       text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;
     }
     .summary-text {
       font-size: 12px; color: #d0e0f0; line-height: 1.7;
-      margin-bottom: 10px; padding-bottom: 10px;
-      border-bottom: 1px solid rgba(102,126,234,0.15);
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
     }
 
-    /* Lean meter */
-    .lean-section { margin-bottom: 10px; }
+    /* LEAN METER */
+    .lean-meter-wrap { margin: 10px 0 4px; }
+    .lean-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--text2); margin-bottom: 4px; }
     .lean-meter {
       position: relative; height: 14px; border-radius: 7px;
       background: linear-gradient(to right, #2040a0, #3060c0, #888, #c06030, #a02020);
@@ -142,91 +181,163 @@
     .lean-marker {
       position: absolute; top: 50%; transform: translate(-50%, -50%);
       width: 12px; height: 12px; border-radius: 50%;
-      background: white; border: 2px solid #0d1b2a;
+      background: white; border: 2px solid var(--bg);
       transition: left 0.5s ease;
     }
-    .lean-labels {
-      display: flex; justify-content: space-between;
-      font-size: 8px; color: #4a6080;
-    }
-    .lean-verdict { font-size: 12px; font-weight: 700; color: #e0e8f0; text-align: center; margin-top: 4px; }
+    .lean-verdict { font-size: 12px; font-weight: 700; color: #e0e8f0; text-align: center; }
+    .lean-confidence { font-size: 10px; color: var(--text2); text-align: center; margin-top: 2px; }
 
-    /* Action buttons */
-    .btn-row { display: flex; gap: 6px; margin-top: 10px; }
-    .btn-action {
-      flex: 1; padding: 7px; border: none; border-radius: 6px;
-      font-size: 10px; font-weight: 600; cursor: pointer;
+    /* FULL REPORT */
+    .full-report { display: none; }
+    .full-report.visible { display: block; }
+    .report-section { margin-bottom: 10px; }
+    .report-section-title {
+      font-size: 10px; font-weight: 700; color: var(--teal2);
+      margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;
     }
-    .btn-save { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
-    .btn-new { background: rgba(102,126,234,0.15); color: #a0b4ff; }
-    .btn-full { background: rgba(102,126,234,0.15); color: #a0b4ff; }
+    .report-points { list-style: none; }
+    .report-points li {
+      font-size: 11px; color: var(--text); line-height: 1.6;
+      padding: 3px 0 3px 12px; position: relative;
+    }
+    .report-points li::before { content: '•'; position: absolute; left: 0; color: var(--teal2); }
+
+    /* ACTION BUTTONS */
+    .action-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .btn-action {
+      flex: 1; min-width: 70px; padding: 8px 6px;
+      border: none; border-radius: 7px;
+      font-size: 10px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-action:hover { opacity: 0.82; }
+    .btn-save { background: linear-gradient(135deg, var(--teal), var(--teal2)); color: white; }
+    .btn-share { background: rgba(13,110,110,0.2); color: var(--teal2); border: 1px solid var(--teal); }
+    .btn-full { background: rgba(102,126,234,0.15); color: #a0b4ff; border: 1px solid rgba(102,126,234,0.3); }
+    .btn-new { background: rgba(255,255,255,0.05); color: var(--text2); border: 1px solid var(--border); }
+    .btn-toggle-report { background: rgba(13,110,110,0.1); color: var(--teal2); border: 1px solid rgba(13,110,110,0.3); width: 100%; margin-top: 8px; padding: 7px; border-radius: 7px; font-size: 10px; font-weight: 600; cursor: pointer; }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: var(--green); color: white; border-radius: 8px;
+      padding: 6px 16px; font-size: 11px; font-weight: 600;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.visible { opacity: 1; }
+
+    /* FOOTER */
+    .footer {
+      text-align: center; padding: 8px; font-size: 9px; color: var(--text2);
+    }
+    .footer a { color: var(--text2); text-decoration: none; }
   </style>
 </head>
 <body>
 
-<img src="images/splash.png" alt="News-Distiller" class="splash" onerror="this.style.display='none'"/>
-
-<div class="header">
-  <div>
-    <div class="header-title">News-Distiller</div>
-    <div class="header-sub">AI-powered news summarizer</div>
+  <!-- NAV -->
+  <div class="nav">
+    <div class="nav-logo">
+      <img src="images/icon48.png" alt="ND" onerror="this.style.display='none'"/>
+      <div>
+        <div class="nav-title">News-Distiller</div>
+        <div class="nav-sub">BY PAUL LAIKIND, PHD</div>
+      </div>
+    </div>
+    <div class="nav-links">
+      <span class="code-badge" id="navCodeBadge" onclick="toggleAccess()">Code ✓</span>
+      <a href="https://app.news-distiller.com/help.html" target="_blank">Help</a>
+      <a href="https://pklmedialab.com" target="_blank">PKLMediaLab</a>
+    </div>
   </div>
-  <a class="web-app-btn" href="https://app.news-distiller.com" target="_blank">Web App</a>
-</div>
 
-<div class="body">
+  <!-- SPLASH -->
+  <img src="images/splash.png" alt="News-Distiller" class="splash" onerror="this.style.display='none'"/>
 
-  <!-- Auth -->
-  <div class="auth-row">
-    <input type="text" id="codeInput" placeholder="Distiller Pack code..."
-      autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
-    <button class="btn-sm" onclick="saveCode()">Save</button>
+  <!-- ACCESS CODE -->
+  <div class="section">
+    <div class="acc-header" onclick="toggleAccess()">
+      <span class="acc-label">Access Code</span>
+      <span class="acc-status" id="accStatusBadge">No code</span>
+      <span class="acc-chevron" id="accChevron">▼</span>
+    </div>
+    <div class="acc-body" id="accBody">
+      <div class="acc-row">
+        <input class="acc-input" type="text" id="codeInput" placeholder="Enter Distiller Pack code..."
+               autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+        <button class="btn-xs" onclick="saveCode()">Save</button>
+        <button class="btn-xs" onclick="testCode()">Test</button>
+      </div>
+      <div class="acc-hint">Need a code? <a href="https://pklmedialab.com/nd-get-started.html" target="_blank">Get a Distiller Pack →</a></div>
+    </div>
   </div>
-  <div class="code-status" id="codeStatus">Enter your Distiller Pack access code.</div>
 
-  <!-- Current page URL -->
-  <div class="url-display" id="urlDisplay">Loading page...</div>
+  <!-- INPUT -->
+  <div class="section">
+    <div class="input-section">
+      <div class="input-label">Check a URL</div>
+      <input class="url-input" type="url" id="urlInput" placeholder="https://..."/>
+      <div class="paywall-warning">⚠ Paywalled articles (NYT, WSJ, etc.) cannot be retrieved by URL. Paste the article text directly instead.</div>
+      <div class="or-sep">— OR —</div>
+      <div class="paste-label">Paste Article or Text</div>
+      <textarea class="paste-area" id="pasteArea" placeholder="Paste any article, news story, or document..."></textarea>
+      <div class="char-count" id="charCount">0 chars · ~0 words</div>
+    </div>
+  </div>
 
-  <!-- Distill button -->
-  <button class="btn-distill" id="distillBtn" onclick="distillPage()">Distill This Page</button>
+  <!-- DISTILL BUTTON -->
+  <button class="btn-distill" id="distillBtn" onclick="distillPage()">Distill It →</button>
 
-  <!-- Warning -->
-  <div class="warning" id="warningBox"></div>
-
-  <!-- Error -->
+  <!-- ERROR -->
   <div class="error-box" id="errorBox"></div>
 
-  <!-- Loading -->
+  <!-- LOADING -->
   <div class="loading" id="loadingBox">
     <div class="spinner"></div>
     <div class="loading-text" id="loadingText">Distilling article...</div>
   </div>
 
-  <!-- Results -->
+  <!-- RESULTS -->
   <div class="results" id="resultsBox">
-    <div class="result-label">Executive Summary</div>
-    <div class="summary-text" id="summaryEl"></div>
-
-    <div class="lean-section" id="leanSection" style="display:none;">
-      <div class="result-label">Political Lean</div>
-      <div class="lean-labels">
-        <span>Left</span><span>Center</span><span>Right</span>
-      </div>
-      <div class="lean-meter">
-        <div class="lean-marker" id="leanMarker" style="left:50%"></div>
-      </div>
-      <div class="lean-verdict" id="leanVerdict"></div>
+    <div class="result-section">
+      <div class="result-label">Executive Summary</div>
+      <div class="summary-text" id="summaryEl"></div>
     </div>
 
-    <div class="btn-row">
-      <button class="btn-action btn-save" onclick="saveSummary()">Save</button>
-      <button class="btn-action btn-full" onclick="openWebApp()">Full Report</button>
+    <div class="result-section" id="leanSection" style="display:none;">
+      <div class="result-label">Political Lean</div>
+      <div class="lean-meter-wrap">
+        <div class="lean-labels"><span>Left</span><span>Center</span><span>Right</span></div>
+        <div class="lean-meter">
+          <div class="lean-marker" id="leanMarker" style="left:50%"></div>
+        </div>
+        <div class="lean-verdict" id="leanVerdict"></div>
+        <div class="lean-confidence" id="leanConfidence"></div>
+      </div>
+    </div>
+
+    <!-- Full Report (hidden by default) -->
+    <div class="full-report" id="fullReport"></div>
+
+    <button class="btn-toggle-report" id="toggleReportBtn" onclick="toggleReport()" style="display:none;">
+      Show Full Report ▼
+    </button>
+
+    <div class="action-row">
+      <button class="btn-action btn-save" onclick="savePDF()">📄 Save PDF</button>
+      <button class="btn-action btn-share" onclick="shareResult()">📤 Share</button>
       <button class="btn-action btn-new" onclick="resetUI()">New</button>
     </div>
   </div>
 
-</div>
+  <!-- FOOTER -->
+  <div class="footer">
+    News-Distiller uses Claude AI · <a href="https://app.news-distiller.com/privacy" target="_blank">Privacy</a>
+  </div>
 
-<script src="popup.js"></script>
+  <div class="toast" id="toast"></div>
+
+  <script src="popup.js"></script>
 </body>
 </html>
