@@ -1,5 +1,4 @@
 // News-Distiller Safari Extension popup.js
-// Matches TruthPrism patterns exactly
 
 const SERVER_URL = 'https://app.news-distiller.com';
 const LEAN_POSITIONS = { 'Left': 8, 'Center-Left': 28, 'Center': 50, 'Center-Right': 72, 'Right': 92 };
@@ -149,6 +148,27 @@ async function checkCustomText() {
   await runDistill(text, code);
 }
 
+// Extract summary from partially-streamed JSON, handling escaped quotes correctly
+function extractSummaryFromBuffer(buf) {
+  var sumKey = '"summary": "';
+  var sumStart = buf.indexOf(sumKey);
+  if (sumStart === -1) return null;
+  var textStart = sumStart + sumKey.length;
+  var textEnd = textStart;
+  while (textEnd < buf.length) {
+    var ch = buf[textEnd];
+    if (ch === '\\') { textEnd += 2; continue; } // skip escaped char
+    if (ch === '"') break; // end of string
+    textEnd++;
+  }
+  var partial = buf.substring(textStart, textEnd)
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+  return partial.length > 20 ? partial : null;
+}
+
 async function runDistill(text, code) {
   _savedResult = null;
   var chunkBuffer = '';
@@ -189,32 +209,22 @@ async function runDistill(text, code) {
 
           if (msg.error) { showError(msg.error); showLoading(false); return; }
 
-          // Accumulate chunks — extract summary as soon as it appears (web app pattern)
+          // Accumulate chunks and show summary progressively
           if (msg.chunk) {
             chunkBuffer += msg.chunk;
             if (!summaryShown) {
-              var sumKey = '"summary": "';
-              var sumStart = chunkBuffer.indexOf(sumKey);
-              if (sumStart !== -1) {
-                var textStart = sumStart + sumKey.length;
-                var textEnd = textStart;
-                while (textEnd < chunkBuffer.length) {
-                  if (chunkBuffer[textEnd] === '"' && chunkBuffer[textEnd-1] !== '\\') break;
-                  textEnd++;
-                }
-                var partial = chunkBuffer.substring(textStart, textEnd);
-                if (partial.length > 20) {
-                  document.getElementById('summaryText').textContent = partial;
-                  document.getElementById('summaryCard').style.display = 'block';
-                  document.getElementById('results').style.display = 'block';
-                  summaryShown = true;
-                  // Keep spinner going until done
-                }
+              var partial = extractSummaryFromBuffer(chunkBuffer);
+              if (partial) {
+                document.getElementById('summaryText').textContent = partial;
+                document.getElementById('summaryCard').style.display = 'block';
+                document.getElementById('results').style.display = 'block';
+                summaryShown = true;
+                // Keep spinner running until done event
               }
             }
           }
 
-          // Final done event — render full results
+          // Final done event — render complete results
           if (msg.done && msg.result) {
             _savedResult = msg.result;
             renderResults(msg.result);
@@ -235,23 +245,19 @@ async function runDistill(text, code) {
 }
 
 function renderResults(r) {
-  // Summary
   document.getElementById('summaryText').textContent = r.summary || '';
   document.getElementById('summaryCard').style.display = 'block';
 
-  // Political lean — exact field names: r.lean, r.confidence, r.signals, r.caveat
   if (r.lean) {
     var pct = LEAN_POSITIONS[r.lean] !== undefined ? LEAN_POSITIONS[r.lean] : 50;
     setTimeout(function() {
       document.getElementById('leanMarker').style.left = pct + '%';
     }, 100);
     document.getElementById('leanVerdict').textContent = r.lean;
-
     var conf = (r.confidence || 'low').toLowerCase();
     var confEl = document.getElementById('confPill');
     confEl.textContent = (r.confidence || '') + ' confidence';
     confEl.className = 'confidence-pill conf-' + conf;
-
     var signalsEl = document.getElementById('leanSignals');
     signalsEl.innerHTML = '';
     (r.signals || []).forEach(function(s) {
@@ -259,23 +265,17 @@ function renderResults(r) {
       li.textContent = s;
       signalsEl.appendChild(li);
     });
-
     var caveatEl = document.getElementById('leanCaveat');
-    if (r.caveat) {
-      caveatEl.textContent = r.caveat;
-      caveatEl.style.display = 'block';
-    } else {
-      caveatEl.style.display = 'none';
-    }
+    if (r.caveat) { caveatEl.textContent = r.caveat; caveatEl.style.display = 'block'; }
+    else { caveatEl.style.display = 'none'; }
     document.getElementById('biasCard').style.display = 'block';
   } else {
     document.getElementById('biasCard').style.display = 'none';
   }
-
   document.getElementById('results').style.display = 'block';
 }
 
-// Full report — generates HTML blob and opens in new tab (exactly like TruthPrism)
+// Full Report — generates HTML blob with PDF save and Mail buttons (matches TruthPrism pattern)
 function openFullReport() {
   var d = _savedResult;
   if (!d) return;
@@ -288,9 +288,9 @@ function openFullReport() {
   var sectionsHtml = '';
   (d.sections || []).forEach(function(sec) {
     if (!sec.points || !sec.points.length) return;
-    sectionsHtml += '<h2>' + esc(sec.title) + '</h2><ul style="margin:0 0 12px 0;padding-left:20px;">';
+    sectionsHtml += '<h2>' + esc(sec.title) + '</h2><ul>';
     sec.points.forEach(function(pt) {
-      sectionsHtml += '<li style="font-size:13px;color:#333;line-height:1.7;margin-bottom:4px;">' + esc(pt) + '</li>';
+      sectionsHtml += '<li>' + esc(pt) + '</li>';
     });
     sectionsHtml += '</ul>';
   });
@@ -298,43 +298,81 @@ function openFullReport() {
   var leanHtml = '';
   if (d.lean) {
     leanHtml = '<h2>Political Lean Assessment</h2>' +
-      '<div style="background:#f0f4f8;border-radius:8px;padding:14px;margin-bottom:10px;">' +
-      '<div style="font-size:18px;font-weight:700;color:#1a2a3a;margin-bottom:6px;">' + esc(d.lean) +
-      (d.confidence ? ' <span style="font-size:11px;font-weight:400;color:#666;">(' + esc(d.confidence) + ' confidence)</span>' : '') + '</div>';
+      '<div class="lean-box">' +
+      '<div class="lean-verdict">' + esc(d.lean) +
+      (d.confidence ? ' <span class="conf">(' + esc(d.confidence) + ' confidence)</span>' : '') + '</div>';
     if (d.signals && d.signals.length) {
-      leanHtml += '<ul style="margin:0 0 8px 0;padding-left:16px;">';
-      d.signals.forEach(function(s) {
-        leanHtml += '<li style="font-size:12px;color:#444;margin-bottom:3px;">' + esc(s) + '</li>';
-      });
+      leanHtml += '<ul class="signals">';
+      d.signals.forEach(function(s) { leanHtml += '<li>' + esc(s) + '</li>'; });
       leanHtml += '</ul>';
     }
-    if (d.caveat) {
-      leanHtml += '<p style="font-size:12px;color:#f0a000;font-style:italic;margin:0;">' + esc(d.caveat) + '</p>';
-    }
+    if (d.caveat) leanHtml += '<p class="caveat">' + esc(d.caveat) + '</p>';
     leanHtml += '</div>';
   }
 
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
-    '<title>News-Distiller Report</title>' +
-    '<style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px;background:#f5f7fa;color:#1a2a3a;}' +
-    'h1{font-size:20px;margin-bottom:4px;}h2{font-size:14px;margin:18px 0 8px;color:#0D6E6E;border-bottom:1px solid #dde;padding-bottom:4px;}' +
-    '.summary{background:white;border:1px solid #dde;border-radius:8px;padding:14px;margin-bottom:10px;font-size:14px;line-height:1.8;color:#333;}' +
-    '.save-btn{display:inline-block;padding:10px 20px;background:#0D6E6E;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;margin:14px 0;}' +
-    '.meta{font-size:11px;color:#999;margin-top:20px;border-top:1px solid #dde;padding-top:10px;}</style></head><body>' +
-    '<h1>News-Distiller Analysis Report</h1>' +
-    '<p style="font-size:12px;color:#666;margin-bottom:16px;">' + timestamp + '</p>' +
+  // Build plain text version for mail/copy
+  var plainText = 'NEWS-DISTILLER REPORT\nGenerated: ' + timestamp + '\n\n';
+  plainText += 'EXECUTIVE SUMMARY\n' + (d.summary || '') + '\n\n';
+  (d.sections || []).forEach(function(sec) {
+    if (!sec.points || !sec.points.length) return;
+    plainText += sec.title.toUpperCase() + '\n';
+    sec.points.forEach(function(pt) { plainText += '\u2022 ' + pt + '\n'; });
+    plainText += '\n';
+  });
+  if (d.lean) {
+    plainText += 'POLITICAL LEAN: ' + d.lean;
+    if (d.confidence) plainText += ' (' + d.confidence + ' confidence)';
+    plainText += '\n';
+    (d.signals || []).forEach(function(s) { plainText += '  \u203a ' + s + '\n'; });
+    if (d.caveat) plainText += '\n' + d.caveat + '\n';
+  }
+  plainText += '\n---\nGenerated by News-Distiller \u2014 app.news-distiller.com';
+
+  var mailSubject = encodeURIComponent('News-Distiller Report');
+  var mailBody = encodeURIComponent(plainText);
+  var mailtoLink = 'mailto:?subject=' + mailSubject + '&body=' + mailBody;
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>News-Distiller Report</title>' +
+    '<style>' +
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:800px;margin:40px auto;padding:0 24px;background:#f5f7fa;color:#1a2a3a;}' +
+    'h1{font-size:22px;color:#0D6E6E;margin-bottom:4px;}' +
+    'h2{font-size:14px;font-weight:700;color:#0D6E6E;border-bottom:2px solid #0D6E6E;padding-bottom:4px;margin:20px 0 8px;}' +
+    '.meta{font-size:12px;color:#888;margin-bottom:20px;}' +
+    '.summary{background:white;border-left:4px solid #0D6E6E;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:4px;font-size:14px;line-height:1.8;color:#333;}' +
+    'ul{margin:0 0 12px 0;padding-left:20px;}' +
+    'li{font-size:13px;color:#333;line-height:1.7;margin-bottom:3px;}' +
+    '.lean-box{background:white;border-radius:8px;border:1px solid #dde;padding:14px;margin-bottom:10px;}' +
+    '.lean-verdict{font-size:20px;font-weight:700;color:#0D6E6E;margin-bottom:8px;}' +
+    '.conf{font-size:12px;font-weight:400;color:#888;}' +
+    '.signals{margin:6px 0 8px;padding-left:16px;}' +
+    '.signals li{font-size:12px;color:#555;}' +
+    '.caveat{font-size:12px;color:#cc8800;font-style:italic;margin:8px 0 0;padding-top:8px;border-top:1px solid #eee;}' +
+    '.btn-row{display:flex;gap:10px;margin:24px 0;flex-wrap:wrap;}' +
+    '.btn{padding:11px 22px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;}' +
+    '.btn-pdf{background:#0D6E6E;color:white;}' +
+    '.btn-mail{background:#1D9E75;color:white;}' +
+    '.btn-copy{background:#f0f4f8;color:#0D6E6E;border:1px solid #0D6E6E;}' +
+    '.footer{font-size:11px;color:#aaa;margin-top:24px;padding-top:12px;border-top:1px solid #dde;}' +
+    '@media print{.btn-row{display:none;}.body{background:white;margin:0;}}' +
+    '</style></head><body>' +
+    '<h1>News-Distiller Report</h1>' +
+    '<div class="meta">Generated: ' + timestamp + '</div>' +
     '<h2>Executive Summary</h2>' +
     '<div class="summary">' + esc(d.summary || '') + '</div>' +
     sectionsHtml +
     leanHtml +
-    '<button class="save-btn" onclick="saveIt()">💾 Save as Text File</button>' +
-    '<div class="meta">Generated by News-Distiller &mdash; app.news-distiller.com &mdash; Powered by Claude AI</div>' +
-    '<script>function saveIt(){' +
-    'var out="NEWS-DISTILLER REPORT\\nGenerated: ' + timestamp + '\\n\\n";' +
-    'out+=document.body.innerText;' +
-    'var a=document.createElement("a");a.href="data:text/plain;charset=utf-8,"+encodeURIComponent(out);' +
-    'a.download="news-distiller-report.txt";a.click();}' +
-    '<\\/script></body></html>';
+    '<div class="btn-row">' +
+    '<button class="btn btn-pdf" onclick="window.print()">🖨 Save as PDF</button>' +
+    '<a class="btn btn-mail" href="' + mailtoLink + '">✉ Email Report</a>' +
+    '<button class="btn btn-copy" onclick="copyText()">📋 Copy Text</button>' +
+    '</div>' +
+    '<div class="footer">Generated by News-Distiller &mdash; app.news-distiller.com &mdash; Powered by Claude AI</div>' +
+    '<script>' +
+    'var _plain=' + JSON.stringify(plainText) + ';' +
+    'function copyText(){navigator.clipboard.writeText(_plain).then(function(){' +
+    'var b=document.querySelector(".btn-copy");b.textContent="\u2713 Copied!";setTimeout(function(){b.textContent="\ud83d\udccb Copy Text"},2000);});}' +
+    '<\/script>' +
+    '</body></html>';
 
   var blob = new Blob([html], { type: 'text/html' });
   chrome.tabs.create({ url: URL.createObjectURL(blob) });
@@ -343,20 +381,18 @@ function openFullReport() {
 async function copyReport() {
   var d = _savedResult;
   if (!d) return;
-  var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n' +
-    (d.summary || '') + '\n\n';
+  var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n' + (d.summary || '') + '\n\n';
   if (d.lean) {
-    text += 'Political Lean: ' + d.lean;
-    if (d.confidence) text += ' (' + d.confidence + ' confidence)';
-    text += '\n';
+    text += 'Political Lean: ' + d.lean + (d.confidence ? ' (' + d.confidence + ' confidence)' : '') + '\n';
     (d.signals || []).forEach(function(s) { text += '  \u203a ' + s + '\n'; });
     if (d.caveat) text += '\n' + d.caveat + '\n';
   }
   text += '\nDistilled by News-Distiller (app.news-distiller.com)\n';
   try {
     await navigator.clipboard.writeText(text);
-    document.getElementById('saveBtn').textContent = '\u2713 Copied!';
-    setTimeout(function() { document.getElementById('saveBtn').textContent = '\ud83d\udccb Copy'; }, 2000);
+    var btn = document.getElementById('saveBtn');
+    btn.textContent = '\u2713 Copied!';
+    setTimeout(function() { btn.textContent = '\ud83d\udccb Copy'; }, 2000);
   } catch(e) {}
 }
 
