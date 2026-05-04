@@ -279,7 +279,9 @@ function renderResults(r) {
   document.getElementById('results').style.display = 'block';
 }
 
-// Full Report — HTML blob that uses jsPDF internally for PDF generation and email
+// Full Report — self-contained HTML blob, no external dependencies
+// Save as PDF uses window.print() — works natively in all browsers
+// Email opens mailto: with a rich plain-text summary in body
 function openFullReport() {
   var d = _savedResult;
   if (!d) return;
@@ -297,22 +299,20 @@ function openFullReport() {
     } catch(e) { pubDateDisplay = m.pubDate; }
   }
 
-  // Serialize result data into the blob so jsPDF can use it client-side
-  var resultJSON = JSON.stringify(d);
-  var metaJSON = JSON.stringify({ title: m.title||'', siteName: m.siteName||'', pubDate: pubDateDisplay, url: m.url||'' });
-
+  // Article metadata block
   var metaHtml = '';
   if (m.title || m.siteName || pubDateDisplay) {
     metaHtml = '<div class="article-meta">';
     if (m.title) metaHtml += '<div class="article-title">' + esc(m.title) + '</div>';
     var byline = [];
-    if (m.siteName) byline.push(esc(m.siteName));
+    if (m.siteName) byline.push('<strong>' + esc(m.siteName) + '</strong>');
     if (pubDateDisplay) byline.push(esc(pubDateDisplay));
     if (byline.length) metaHtml += '<div class="article-byline">' + byline.join(' &bull; ') + '</div>';
-    if (m.url) metaHtml += '<div class="article-url"><a href="' + esc(m.url) + '" target="_blank">' + esc(m.url) + '</a></div>';
+    if (m.url) metaHtml += '<div class="article-url"><a href="' + esc(m.url) + '">' + esc(m.url) + '</a></div>';
     metaHtml += '</div>';
   }
 
+  // Sections
   var sectionsHtml = '';
   (d.sections || []).forEach(function(sec) {
     if (!sec.points || !sec.points.length) return;
@@ -321,28 +321,35 @@ function openFullReport() {
     sectionsHtml += '</ul>';
   });
 
+  // Lean section with inline SVG gradient meter — no external deps
   var leanHtml = '';
   if (d.lean) {
     var LPOS = {'Left':8,'Center-Left':28,'Center':50,'Center-Right':72,'Right':92};
     var pct = LPOS[d.lean] !== undefined ? LPOS[d.lean] : 50;
-    var cconf = (d.confidence||'low').toLowerCase();
-    var ccolors = {low:'#cc8800',medium:'#4da6ff',high:'#1D9E75'};
-    var cbgs = {low:'#fff8e6',medium:'#e8f0ff',high:'#e8fff6'};
+    var conf = (d.confidence || 'low').toLowerCase();
+    var confStyles = {
+      low:    'background:#fff3cd;color:#cc8800;',
+      medium: 'background:#dbeafe;color:#1d6ed8;',
+      high:   'background:#d1fae5;color:#0D6E6E;'
+    };
+    var confStyle = confStyles[conf] || confStyles.low;
+
     leanHtml = '<h2>Political Lean Assessment</h2>' +
       '<div class="lean-box">' +
         '<div class="lean-header">' +
-          '<span class="lean-title-sm">Political Lean</span>' +
-          '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:' + (cbgs[cconf]||'#eee') + ';color:' + (ccolors[cconf]||'#888') + ';">' + esc(d.confidence||'') + ' confidence</span>' +
+          '<span class="lean-label-sm">Political Lean</span>' +
+          '<span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;' + confStyle + '">' + esc(d.confidence||'') + ' confidence</span>' +
         '</div>' +
+        // Gradient bar using pure CSS — no JS, no external deps
         '<div style="margin:10px 0 4px;">' +
           '<div style="display:flex;justify-content:space-between;font-size:10px;color:#888;margin-bottom:5px;">' +
-            '<span>Left</span><span>Center-Left</span><span>Center</span><span>Center-Right</span><span>Right</span>' +
+            '<span>Left</span><span>Center&#8209;Left</span><span>Center</span><span>Center&#8209;Right</span><span>Right</span>' +
           '</div>' +
-          '<div style="position:relative;height:18px;border-radius:9px;background:linear-gradient(to right,#2040a0,#3060c0,#888,#c06030,#a02020);">' +
-            '<div style="position:absolute;top:50%;left:' + pct + '%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:white;border:2px solid #1a2a3a;box-shadow:0 0 0 2px white;"></div>' +
+          '<div style="position:relative;height:20px;border-radius:10px;background:linear-gradient(to right,#2040a0,#4060c0,#888,#c06030,#a02020);">' +
+            '<div style="position:absolute;top:50%;left:' + pct + '%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;background:white;border:3px solid #222;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>' +
           '</div>' +
         '</div>' +
-        '<div style="font-size:22px;font-weight:700;color:#0D6E6E;text-align:center;margin:10px 0 8px;">' + esc(d.lean) + '</div>';
+        '<div style="font-size:24px;font-weight:800;color:#0D6E6E;text-align:center;margin:12px 0 10px;">' + esc(d.lean) + '</div>';
     if (d.signals && d.signals.length) {
       leanHtml += '<ul class="signals">';
       d.signals.forEach(function(s) { leanHtml += '<li>' + esc(s) + '</li>'; });
@@ -352,184 +359,104 @@ function openFullReport() {
     leanHtml += '</div>';
   }
 
-  // The blob page loads jsPDF and builds PDF client-side, then offers download + email-with-attachment via Web Share API
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>News-Distiller Report</title>' +
-    '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>' +
-    '<style>' +
-    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:800px;margin:40px auto;padding:0 24px;background:#f5f7fa;color:#1a2a3a;}' +
-    'h1{font-size:22px;color:#0D6E6E;margin-bottom:4px;}' +
-    'h2{font-size:14px;font-weight:700;color:#0D6E6E;border-bottom:2px solid #11998E;padding-bottom:4px;margin:22px 0 8px;}' +
-    '.report-meta{font-size:12px;color:#888;margin-bottom:16px;}' +
-    '.article-meta{background:white;border:1px solid #dde;border-left:4px solid #0D6E6E;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:16px;}' +
-    '.article-title{font-size:16px;font-weight:700;color:#1a2a3a;margin-bottom:4px;}' +
-    '.article-byline{font-size:12px;color:#666;margin-bottom:4px;}' +
-    '.article-url{font-size:11px;color:#888;word-break:break-all;} .article-url a{color:#0D6E6E;}' +
-    '.summary{background:white;border:1px solid #dde;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px;line-height:1.8;color:#333;}' +
-    'ul{margin:0 0 12px 0;padding-left:20px;} li{font-size:13px;color:#333;line-height:1.7;margin-bottom:3px;}' +
-    '.lean-box{background:white;border:1px solid #dde;border-radius:8px;padding:16px;margin-bottom:10px;}' +
-    '.lean-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}' +
-    '.lean-title-sm{font-size:12px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:0.5px;}' +
-    '.signals{margin:4px 0 8px;padding-left:16px;} .signals li{font-size:12px;color:#555;}' +
-    '.caveat{font-size:12px;color:#cc8800;font-style:italic;margin:8px 0 0;padding-top:8px;border-top:1px solid #eee;}' +
-    '.btn-row{display:flex;gap:10px;margin:24px 0;flex-wrap:wrap;}' +
-    '.btn{padding:11px 22px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-block;}' +
-    '.btn-pdf{background:#0D6E6E;color:white;} .btn-mail{background:#1D9E75;color:white;} .btn-copy{background:#f0f4f8;color:#0D6E6E;border:1px solid #0D6E6E;}' +
-    '.status{font-size:12px;color:#0D6E6E;margin-top:8px;min-height:18px;}' +
-    '.footer{font-size:11px;color:#aaa;margin-top:24px;padding-top:12px;border-top:1px solid #dde;}' +
-    '@media print{.btn-row,.status{display:none;}}' +
-    '</style></head><body>' +
-    '<h1>News-Distiller Report</h1>' +
-    '<div class="report-meta">Generated: ' + timestamp + '</div>' +
-    metaHtml +
-    '<h2>Executive Summary</h2><div class="summary" id="summaryDiv">' + esc(d.summary||'') + '</div>' +
-    sectionsHtml +
-    leanHtml +
-    '<div class="btn-row">' +
-    '<button class="btn btn-pdf" onclick="downloadPDF()">⬇ Download PDF</button>' +
-    '<button class="btn btn-mail" onclick="emailPDF()">✉ Email PDF</button>' +
-    '<button class="btn btn-copy" onclick="copyText()">📋 Copy Text</button>' +
-    '</div>' +
-    '<div class="status" id="status"></div>' +
-    '<div class="footer">Generated by News-Distiller &mdash; app.news-distiller.com &mdash; Powered by Claude AI</div>' +
+  // Plain text for email body
+  var plainText = 'NEWS-DISTILLER REPORT\n' + '='.repeat(50) + '\nGenerated: ' + timestamp + '\n';
+  if (m.title)       plainText += '\nARTICLE:   ' + m.title;
+  if (m.siteName)    plainText += '\nSOURCE:    ' + m.siteName;
+  if (pubDateDisplay) plainText += '\nPUBLISHED: ' + pubDateDisplay;
+  if (m.url)         plainText += '\nURL:       ' + m.url;
+  plainText += '\n\n' + '='.repeat(50) + '\nEXECUTIVE SUMMARY\n' + '='.repeat(50) + '\n\n' + (d.summary || '') + '\n';
+  (d.sections || []).forEach(function(sec) {
+    if (!sec.points || !sec.points.length) return;
+    plainText += '\n' + sec.title.toUpperCase() + '\n' + '-'.repeat(30) + '\n';
+    sec.points.forEach(function(pt) { plainText += '\u2022 ' + pt + '\n'; });
+  });
+  if (d.lean) {
+    plainText += '\n' + '='.repeat(50) + '\nPOLITICAL LEAN ASSESSMENT\n' + '='.repeat(50) + '\n';
+    plainText += d.lean + (d.confidence ? ' (' + d.confidence + ' confidence)' : '') + '\n\n';
+    (d.signals || []).forEach(function(s) { plainText += '  \u203a ' + s + '\n'; });
+    if (d.caveat) plainText += '\n' + d.caveat + '\n';
+  }
+  plainText += '\n' + '='.repeat(50) + '\nGenerated by News-Distiller \u2014 app.news-distiller.com\nPowered by Claude AI';
 
-    '<script>' +
-    'var _data = ' + resultJSON + ';' +
-    'var _meta = ' + metaJSON + ';' +
-    'var _ts = "' + timestamp + '";' +
-    'var _pdfBlob = null;' +
+  var mailSubject = 'News-Distiller Report' + (m.title ? ': ' + m.title.substring(0, 60) : '');
+  var mailtoHref = 'mailto:?subject=' + encodeURIComponent(mailSubject) + '&body=' + encodeURIComponent(plainText);
 
-    // Build PDF using jsPDF
-    'function buildPDF() {' +
-    '  var doc = new jspdf.jsPDF({ orientation:"portrait", unit:"pt", format:"letter" });' +
-    '  var pw = doc.internal.pageSize.getWidth();' +
-    '  var ph = doc.internal.pageSize.getHeight();' +
-    '  var margin = 50; var y = margin; var maxW = pw - margin * 2;' +
-    '  function checkPage(needed) { if (y + needed > ph - margin) { doc.addPage(); y = margin; } }' +
-    '  function addText(text, size, style, color, wrapWidth) {' +
-    '    doc.setFontSize(size); doc.setFont("helvetica", style||"normal");' +
-    '    if (color) doc.setTextColor(color[0],color[1],color[2]); else doc.setTextColor(30,42,58);' +
-    '    var lines = doc.splitTextToSize(text, wrapWidth||maxW);' +
-    '    var h = lines.length * size * 1.4;' +
-    '    checkPage(h); doc.text(lines, margin, y); y += h;' +
-    '    doc.setTextColor(30,42,58);' +
-    '  }' +
-    '  function addHRule(r,g,b) { doc.setDrawColor(r||13,g||110,b||110); doc.line(margin, y, pw-margin, y); y += 8; }' +
-    '  function section(title) { y += 10; checkPage(30); doc.setFontSize(12); doc.setFont("helvetica","bold"); doc.setTextColor(13,110,110); doc.text(title.toUpperCase(), margin, y); y += 6; addHRule(17,153,142); doc.setTextColor(30,42,58); }' +
-
-    // Header
-    '  doc.setFontSize(20); doc.setFont("helvetica","bold"); doc.setTextColor(13,110,110);' +
-    '  doc.text("News-Distiller Report", margin, y); y += 28;' +
-    '  doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.setTextColor(120,120,120);' +
-    '  doc.text("Generated: " + _ts, margin, y); y += 20;' +
-
-    // Article metadata
-    '  if (_meta.title || _meta.siteName) {' +
-    '    doc.setFillColor(240,247,245); doc.roundedRect(margin-8, y-4, maxW+16, 4, 2, 2, "F");' +
-    '    if (_meta.title) { addText(_meta.title, 13, "bold", [13,110,110]); y += 2; }' +
-    '    var byline = []; if (_meta.siteName) byline.push(_meta.siteName); if (_meta.pubDate) byline.push(_meta.pubDate);' +
-    '    if (byline.length) { addText(byline.join(" \u2022 "), 9, "normal", [100,100,100]); }' +
-    '    if (_meta.url) { addText(_meta.url, 8, "normal", [13,110,110]); }' +
-    '    y += 14;' +
-    '  }' +
-
-    // Summary
-    '  section("Executive Summary");' +
-    '  addText(_data.summary||"", 11, "normal", null, maxW); y += 10;' +
-
-    // Sections
-    '  (_data.sections||[]).forEach(function(sec) {' +
-    '    if (!sec.points || !sec.points.length) return;' +
-    '    section(sec.title);' +
-    '    sec.points.forEach(function(pt) {' +
-    '      checkPage(20);' +
-    '      doc.setFontSize(10); doc.setFont("helvetica","normal"); doc.setTextColor(30,42,58);' +
-    '      var lines = doc.splitTextToSize(pt, maxW-14);' +
-    '      doc.text("\u2022", margin, y); doc.text(lines, margin+10, y);' +
-    '      y += lines.length * 14 + 2;' +
-    '    }); y += 6;' +
-    '  });' +
-
-    // Lean
-    '  if (_data.lean) {' +
-    '    section("Political Lean Assessment");' +
-    '    var leanLine = _data.lean + (_data.confidence ? " (" + _data.confidence + " confidence)" : "");' +
-    '    addText(leanLine, 14, "bold", [13,110,110]); y += 4;' +
-    '    (_data.signals||[]).forEach(function(s) {' +
-    '      checkPage(18); doc.setFontSize(10); doc.setFont("helvetica","normal"); doc.setTextColor(60,80,100);' +
-    '      var lines = doc.splitTextToSize(s, maxW-14); doc.text("\u203a", margin, y); doc.text(lines, margin+10, y);' +
-    '      y += lines.length * 13 + 2;' +
-    '    });' +
-    '    if (_data.caveat) { y += 4; addText(_data.caveat, 9, "italic", [160,100,0]); }' +
-    '  }' +
-
-    // Footer
-    '  y += 20; checkPage(20);' +
-    '  doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(160,160,160);' +
-    '  doc.text("Generated by News-Distiller \u2014 app.news-distiller.com \u2014 Powered by Claude AI", margin, y);' +
-
-    '  return doc;' +
-    '}' +
-
-    'function downloadPDF() {' +
-    '  document.getElementById("status").textContent = "Generating PDF\u2026";' +
-    '  setTimeout(function() {' +
-    '    try {' +
-    '      var doc = buildPDF();' +
-    '      doc.save("news-distiller-report.pdf");' +
-    '      _pdfBlob = doc.output("blob");' +
-    '      document.getElementById("status").textContent = "\u2713 PDF downloaded!";' +
-    '    } catch(e) { document.getElementById("status").textContent = "Error: " + e.message; }' +
-    '  }, 50);' +
-    '}' +
-
-    // Email PDF — use Web Share API with PDF blob if available (works on iOS Safari)
-    // Falls back to mailto with text body if Web Share not available or PDF share fails
-    'function emailPDF() {' +
-    '  document.getElementById("status").textContent = "Preparing PDF for email\u2026";' +
-    '  setTimeout(function() {' +
-    '    try {' +
-    '      var doc = buildPDF();' +
-    '      _pdfBlob = doc.output("blob");' +
-    '      var subject = "News-Distiller Report' + (m.title ? ': ' + m.title.replace(/'/g,"\\'").substring(0,60) : '') + '";' +
-    '      var fname = "news-distiller-report.pdf";' +
-    '      var file = new File([_pdfBlob], fname, { type: "application/pdf" });' +
-    '      if (navigator.canShare && navigator.canShare({ files: [file] })) {' +
-    '        navigator.share({ files: [file], title: subject })' +
-    '          .then(function() { document.getElementById("status").textContent = "\u2713 Shared!"; })' +
-    '          .catch(function(e) { if (e.name !== "AbortError") fallbackMailto(); });' +
-    '      } else {' +
-    '        fallbackMailto();' +
-    '      }' +
-    '    } catch(e) { fallbackMailto(); }' +
-    '  }, 50);' +
-    '}' +
-
-    'function fallbackMailto() {' +
-    '  var subj = encodeURIComponent("News-Distiller Report' + (m.title ? ': ' + m.title.substring(0,60) : '') + '");' +
-    '  var body = "Please find the News-Distiller report attached (download the PDF from this page and attach it).\\n\\n";' +
-    '  body += "EXECUTIVE SUMMARY\\n" + (_data.summary||"") + "\\n\\n";' +
-    '  if (_data.lean) body += "POLITICAL LEAN: " + _data.lean + (_data.confidence ? " (" + _data.confidence + " confidence)" : "") + "\\n";' +
-    '  body += "\\n---\\nGenerated by News-Distiller \u2014 app.news-distiller.com";' +
-    '  window.location.href = "mailto:?subject=" + subj + "&body=" + encodeURIComponent(body);' +
-    '  document.getElementById("status").textContent = "Note: Download the PDF above and attach it to your email.";' +
-    '}' +
-
-    'function copyText() {' +
-    '  var t = "NEWS-DISTILLER REPORT\\nGenerated: " + _ts + "\\n";' +
-    '  if (_meta.title) t += "\\nARTICLE: " + _meta.title;' +
-    '  if (_meta.siteName) t += "\\nSOURCE: " + _meta.siteName;' +
-    '  if (_meta.pubDate) t += "\\nPUBLISHED: " + _meta.pubDate;' +
-    '  t += "\\n\\nEXECUTIVE SUMMARY\\n" + (_data.summary||"") + "\\n\\n";' +
-    '  (_data.sections||[]).forEach(function(s){ if(s.points&&s.points.length){t+=s.title.toUpperCase()+"\\n"; s.points.forEach(function(p){t+="\u2022 "+p+"\\n";}); t+="\\n";} });' +
-    '  if (_data.lean) { t+="POLITICAL LEAN: "+_data.lean+(_data.confidence?" ("+_data.confidence+" confidence)":"")+"\n"; (_data.signals||[]).forEach(function(s){t+="  \u203a "+s+"\\n";}); }' +
-    '  t += "\\n---\\nGenerated by News-Distiller \u2014 app.news-distiller.com";' +
-    '  navigator.clipboard.writeText(t).then(function(){' +
-    '    document.getElementById("status").textContent="\u2713 Copied!";' +
-    '    setTimeout(function(){document.getElementById("status").textContent="";},2000);' +
-    '  });' +
-    '}' +
-    '<\/script>' +
-    '</body></html>';
+  // Fully self-contained HTML — no external scripts or fonts
+  var html = [
+    '<!DOCTYPE html><html><head><meta charset="UTF-8">',
+    '<title>News-Distiller Report</title>',
+    '<style>',
+    '*{box-sizing:border-box;margin:0;padding:0;}',
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;',
+    '  max-width:820px;margin:0 auto;padding:32px 28px;background:#f4f6f9;color:#1a2a3a;}',
+    'h1{font-size:24px;color:#0D6E6E;margin-bottom:2px;font-weight:800;}',
+    '.report-ts{font-size:12px;color:#888;margin-bottom:20px;}',
+    'h2{font-size:13px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:.6px;',
+    '  border-bottom:2px solid #11998E;padding-bottom:5px;margin:24px 0 10px;}',
+    '.article-meta{background:white;border-left:5px solid #0D6E6E;border-radius:0 8px 8px 0;',
+    '  padding:14px 18px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06);}',
+    '.article-title{font-size:17px;font-weight:700;color:#1a2a3a;margin-bottom:5px;line-height:1.4;}',
+    '.article-byline{font-size:12px;color:#555;margin-bottom:4px;}',
+    '.article-url{font-size:11px;word-break:break-all;} .article-url a{color:#0D6E6E;}',
+    '.summary{background:white;border-radius:8px;padding:16px 18px;',
+    '  font-size:14px;line-height:1.8;color:#2a3a4a;box-shadow:0 1px 4px rgba(0,0,0,.06);}',
+    'ul{margin:0 0 4px 0;padding-left:18px;}',
+    'li{font-size:13px;color:#2a3a4a;line-height:1.75;margin-bottom:3px;padding-left:4px;}',
+    '.lean-box{background:white;border-radius:8px;padding:18px;',
+    '  box-shadow:0 1px 4px rgba(0,0,0,.06);}',
+    '.lean-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}',
+    '.lean-label-sm{font-size:11px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:.5px;}',
+    '.signals{list-style:none;padding:0;margin:4px 0 10px;}',
+    '.signals li{font-size:12px;color:#445566;padding:3px 0 3px 14px;position:relative;line-height:1.5;}',
+    '.signals li::before{content:"\u203a";position:absolute;left:0;color:#0D6E6E;font-weight:700;}',
+    '.caveat{font-size:12px;color:#cc8800;font-style:italic;margin-top:10px;',
+    '  padding-top:10px;border-top:1px solid #eee;line-height:1.5;}',
+    '.btn-row{display:flex;gap:12px;margin:28px 0 8px;flex-wrap:wrap;}',
+    '.btn{padding:12px 24px;border:none;border-radius:8px;font-size:13px;font-weight:700;',
+    '  cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;',
+    '  transition:opacity .15s;}',
+    '.btn:hover{opacity:.85;}',
+    '.btn-pdf{background:#0D6E6E;color:white;}',
+    '.btn-mail{background:#1D9E75;color:white;}',
+    '.btn-copy{background:white;color:#0D6E6E;border:2px solid #0D6E6E;}',
+    '.btn-hint{font-size:11px;color:#888;margin-top:6px;}',
+    '.footer{font-size:11px;color:#aaa;margin-top:28px;padding-top:14px;border-top:1px solid #dde;text-align:center;}',
+    // Print styles — hide buttons, white background, show full content
+    '@media print{',
+    '  body{background:white;padding:20px;}',
+    '  .btn-row,.btn-hint{display:none!important;}',
+    '  .article-meta,.summary,.lean-box{box-shadow:none;border:1px solid #ddd;}',
+    '}',
+    '</style></head><body>',
+    '<h1>News-Distiller Report</h1>',
+    '<div class="report-ts">Generated: ' + timestamp + '</div>',
+    metaHtml,
+    '<h2>Executive Summary</h2>',
+    '<div class="summary">' + esc(d.summary || '') + '</div>',
+    sectionsHtml,
+    leanHtml,
+    '<div class="btn-row">',
+    // PDF: window.print() — browser print dialog has "Save as PDF" option on all platforms
+    '<button class="btn btn-pdf" onclick="window.print()">🖨 Save as PDF</button>',
+    // Email: opens Mail with full formatted text body
+    '<a class="btn btn-mail" id="mailBtn" href="' + esc(mailtoHref) + '">✉ Email Report</a>',
+    '<button class="btn btn-copy" onclick="doCopy()">📋 Copy Text</button>',
+    '</div>',
+    '<div class="btn-hint">Tip: To email as PDF — click "Save as PDF" first, then attach the downloaded file to your email.</div>',
+    '<div class="footer">Generated by News-Distiller &mdash; app.news-distiller.com &mdash; Powered by Claude AI</div>',
+    '<script>',
+    'var _plain=' + JSON.stringify(plainText) + ';',
+    'function doCopy(){',
+    '  navigator.clipboard.writeText(_plain).then(function(){',
+    '    var b=document.querySelector(".btn-copy");',
+    '    b.textContent="\u2713 Copied!";',
+    '    setTimeout(function(){b.innerHTML="\ud83d\udccb Copy Text";},2000);',
+    '  });',
+    '}',
+    '<\/script>',
+    '</body></html>'
+  ].join('');
 
   var blob = new Blob([html], { type: 'text/html' });
   chrome.tabs.create({ url: URL.createObjectURL(blob) });
