@@ -70,11 +70,11 @@ async function testCode() {
     });
     var d = await resp.json();
     if (d.valid) {
-      var rem = d.remaining !== undefined ? d.remaining : d.distills_remaining;
-      var msg = rem !== undefined ? (rem === -1 ? 'Unlimited uses.' : rem + ' uses left.') : '';
-      showToast('\u2713 Valid code! ' + msg, 3000);
+      var rem = d.remaining != null ? d.remaining : null;
+      var remStr = rem === -1 ? 'Unlimited uses.' : (rem != null ? rem + ' uses left.' : '');
+      showToast('\u2713 Valid code! ' + remStr, 3000);
     } else {
-      showToast('\u2717 ' + (d.error || 'Code not recognized.'), 3000);
+      showToast('\u2717 ' + (d.message || d.error || 'Code not recognized.'), 3000);
     }
   } catch(e) {
     showToast('Could not reach server.', 3000);
@@ -138,11 +138,11 @@ async function distillPage() {
       return;
     }
 
-    // SSE streaming
+    // SSE streaming — accumulate chunks and show summary progressively
     var reader = resp.body.getReader();
     var decoder = new TextDecoder();
     var buffer = '';
-    var chunkBuffer = '';
+    var accumulated = '';
     var summaryShown = false;
 
     while (true) {
@@ -163,21 +163,29 @@ async function distillPage() {
 
         // Accumulate JSON chunks and show summary as soon as parseable
         if (msg.chunk) {
-          chunkBuffer += msg.chunk;
+          accumulated += msg.chunk;
           if (!summaryShown) {
-            try {
-              var partial = JSON.parse(chunkBuffer);
-              if (partial.summary) {
-                document.getElementById('summaryEl').textContent = partial.summary;
+            var sumKey = '"summary": "';
+            var sumStart = accumulated.indexOf(sumKey);
+            if (sumStart !== -1) {
+              var textStart = sumStart + sumKey.length;
+              var textEnd = textStart;
+              while (textEnd < accumulated.length) {
+                if (accumulated[textEnd] === '"' && accumulated[textEnd-1] !== '\\') break;
+                textEnd++;
+              }
+              var partial = accumulated.substring(textStart, textEnd);
+              if (partial.length > 20) {
+                document.getElementById('summaryEl').textContent = partial;
                 document.getElementById('resultsBox').classList.add('visible');
                 showLoading(false);
                 summaryShown = true;
               }
-            } catch(e) {}
+            }
           }
         }
 
-        // Final done event
+        // Final done event with complete result
         if (msg.done && msg.result) {
           lastResult = msg.result;
           renderResults(msg.result);
@@ -193,36 +201,37 @@ async function distillPage() {
 }
 
 function renderResults(r) {
+  // Summary
   document.getElementById('summaryEl').textContent = r.summary || '';
 
-  // Political lean fields from API:
-  // r.lean = "Center", r.confidence = "Medium confidence"
-  // r.bias_signals = ["signal1", "signal2"] (bullet points)
-  // r.lean_note = italic note text
-  var lean = r.lean || r.political_lean || null;
-  var confidence = r.confidence || r.lean_confidence || null;
-  var signals = r.bias_signals || r.lean_signals || r.signals || [];
-  var leanNote = r.lean_note || r.lean_summary || r.note || null;
+  // Political lean — exact field names from web app source:
+  // r.lean, r.confidence, r.signals (array), r.caveat
+  if (r.lean) {
+    var pct = LEAN_POSITIONS[r.lean] !== undefined ? LEAN_POSITIONS[r.lean] : 50;
+    setTimeout(function() {
+      document.getElementById('leanMarker').style.left = pct + '%';
+    }, 100);
+    document.getElementById('leanVerdict').textContent = r.lean;
 
-  if (lean) {
-    var pct = LEAN_POSITIONS[lean] !== undefined ? LEAN_POSITIONS[lean] : 50;
-    document.getElementById('leanMarker').style.left = pct + '%';
-    document.getElementById('leanVerdict').textContent = lean;
-    document.getElementById('leanConfidence').textContent = confidence || '';
+    // Confidence pill
+    var conf = (r.confidence || 'low').toLowerCase();
+    var confEl = document.getElementById('leanConfidence');
+    confEl.textContent = (r.confidence || '') + ' confidence';
+    confEl.className = 'lean-confidence-badge conf-' + conf;
 
+    // Signals bullets
     var signalsEl = document.getElementById('leanSignals');
     signalsEl.innerHTML = '';
-    if (Array.isArray(signals)) {
-      signals.forEach(function(s) {
-        var li = document.createElement('li');
-        li.textContent = s;
-        signalsEl.appendChild(li);
-      });
-    }
+    (r.signals || []).forEach(function(s) {
+      var li = document.createElement('li');
+      li.textContent = s;
+      signalsEl.appendChild(li);
+    });
 
+    // Caveat (italic note)
     var noteEl = document.getElementById('leanNote');
-    if (leanNote) {
-      noteEl.textContent = leanNote;
+    if (r.caveat) {
+      noteEl.textContent = r.caveat;
       noteEl.style.display = 'block';
     } else {
       noteEl.style.display = 'none';
@@ -242,14 +251,15 @@ function openFullReport() {
 
 async function copyResult() {
   if (!lastResult) return;
-  var lean = lastResult.lean || lastResult.political_lean || null;
-  var confidence = lastResult.confidence || null;
-  var signals = lastResult.bias_signals || lastResult.signals || [];
+  var r = lastResult;
   var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n' +
-    (lastResult.summary || '') + '\n\n' +
-    (lean ? 'Political Lean: ' + lean + (confidence ? ' (' + confidence + ')' : '') + '\n' : '') +
-    (signals.length ? signals.map(function(s) { return '  \u2022 ' + s; }).join('\n') + '\n' : '') +
-    '\nDistilled by News-Distiller (app.news-distiller.com)\n';
+    (r.summary || '') + '\n\n';
+  if (r.lean) {
+    text += 'Political Lean: ' + r.lean + (r.confidence ? ' (' + r.confidence + ' confidence)' : '') + '\n';
+    (r.signals || []).forEach(function(s) { text += '  \u203a ' + s + '\n'; });
+    if (r.caveat) text += '\n' + r.caveat + '\n';
+  }
+  text += '\nDistilled by News-Distiller (app.news-distiller.com)\n';
   try {
     await navigator.clipboard.writeText(text);
     showToast('Summary copied to clipboard!');
@@ -260,10 +270,10 @@ async function copyResult() {
 
 async function shareResult() {
   if (!lastResult) return;
-  var lean = lastResult.lean || null;
+  var r = lastResult;
   var text = 'NEWS-DISTILLER SUMMARY\n\n' +
-    (lastResult.summary || '') + '\n\n' +
-    (lean ? 'Political Lean: ' + lean + '\n\n' : '') +
+    (r.summary || '') + '\n\n' +
+    (r.lean ? 'Political Lean: ' + r.lean + '\n\n' : '') +
     'Distilled by News-Distiller (app.news-distiller.com)';
   if (navigator.share) {
     try {
