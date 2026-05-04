@@ -63,13 +63,17 @@ async function testCode() {
   if (!code) { showToast('No code to test.'); return; }
   showToast('Testing...', 3000);
   try {
-    var resp = await fetch(API_BASE + '/api/status?code=' + encodeURIComponent(code));
+    var resp = await fetch(API_BASE + '/api/validate-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code })
+    });
     var d = await resp.json();
-    if (d.valid || d.distills_remaining !== undefined) {
-      var rem = d.distills_remaining !== undefined ? d.distills_remaining : d.remaining;
+    if (d.valid) {
+      var rem = d.remaining !== undefined ? d.remaining : d.distills_remaining;
       showToast('\u2713 Valid! ' + (rem !== undefined ? rem + ' uses left.' : ''), 3000);
-    } else if (d.free_remaining !== undefined && !code) {
-      showToast('Free tier: ' + d.free_remaining + ' distillations left.', 3000);
+    } else if (d.error) {
+      showToast('\u2717 ' + d.error, 3000);
     } else {
       showToast('\u2717 Code not recognized.', 3000);
     }
@@ -135,7 +139,6 @@ async function distillPage() {
       return;
     }
 
-    // SSE streaming — show summary progressively as it arrives
     var reader = resp.body.getReader();
     var decoder = new TextDecoder();
     var buffer = '';
@@ -156,7 +159,7 @@ async function distillPage() {
         try { msg = JSON.parse(payload); } catch(e) { continue; }
         if (msg.error) { showError(msg.error); showLoading(false); return; }
 
-        // Progressive rendering — show summary as soon as it arrives
+        // Progressive: show summary as soon as it arrives
         if (msg.summary && !summaryShown) {
           document.getElementById('summaryEl').textContent = msg.summary;
           document.getElementById('resultsBox').classList.add('visible');
@@ -164,7 +167,7 @@ async function distillPage() {
           summaryShown = true;
         }
 
-        // Final done event — render full results including lean
+        // Final done event
         if (msg.done && msg.result) {
           lastResult = msg.result;
           renderResults(msg.result);
@@ -178,13 +181,25 @@ async function distillPage() {
   }
 }
 
+function getLean(r) {
+  // Handle multiple possible field names from the API
+  return r.lean || r.political_lean || r.politicalLean || null;
+}
+
+function getConfidence(r) {
+  return r.confidence || r.lean_confidence || r.leanConfidence || null;
+}
+
 function renderResults(r) {
   document.getElementById('summaryEl').textContent = r.summary || '';
 
-  if (r.lean) {
-    var pct = LEAN_POSITIONS[r.lean] !== undefined ? LEAN_POSITIONS[r.lean] : 50;
+  var lean = getLean(r);
+  var confidence = getConfidence(r);
+
+  if (lean) {
+    var pct = LEAN_POSITIONS[lean] !== undefined ? LEAN_POSITIONS[lean] : 50;
     document.getElementById('leanMarker').style.left = pct + '%';
-    document.getElementById('leanVerdict').textContent = r.lean + (r.confidence ? ' (' + r.confidence + ' confidence)' : '');
+    document.getElementById('leanVerdict').textContent = lean + (confidence ? ' (' + confidence + ' confidence)' : '');
     document.getElementById('leanConfidence').textContent = '';
     document.getElementById('leanSection').style.display = 'block';
   } else {
@@ -200,9 +215,11 @@ function openFullReport() {
 
 async function copyResult() {
   if (!lastResult) return;
+  var lean = getLean(lastResult);
+  var confidence = getConfidence(lastResult);
   var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n' +
     (lastResult.summary || '') + '\n\n' +
-    (lastResult.lean ? 'Political Lean: ' + lastResult.lean + (lastResult.confidence ? ' (' + lastResult.confidence + ' confidence)' : '') + '\n' : '') +
+    (lean ? 'Political Lean: ' + lean + (confidence ? ' (' + confidence + ' confidence)' : '') + '\n' : '') +
     '\nDistilled by News-Distiller (app.news-distiller.com)\n';
   try {
     await navigator.clipboard.writeText(text);
@@ -214,9 +231,10 @@ async function copyResult() {
 
 async function shareResult() {
   if (!lastResult) return;
+  var lean = getLean(lastResult);
   var text = 'NEWS-DISTILLER SUMMARY\n\n' +
     (lastResult.summary || '') + '\n\n' +
-    (lastResult.lean ? 'Political Lean: ' + lastResult.lean + '\n\n' : '') +
+    (lean ? 'Political Lean: ' + lean + '\n\n' : '') +
     'Distilled by News-Distiller (app.news-distiller.com)';
   if (navigator.share) {
     try {
