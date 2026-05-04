@@ -50,11 +50,13 @@
     .btn-distill:disabled { opacity: 0.4; cursor: default; }
     .error-box { margin: 0 12px 10px; background: #2a1010; border: 1px solid #4a2020; border-radius: 8px; padding: 8px 12px; font-size: 11px; color: #cc6666; display: none; }
     .error-box.visible { display: block; }
+    /* Loading with rotating steps */
     .loading { text-align: center; padding: 20px; display: none; }
     .loading.visible { display: block; }
-    .spinner { width: 28px; height: 28px; border: 3px solid rgba(13,110,110,0.2); border-top-color: var(--teal2); border-radius: 50%; animation: spin 0.85s linear infinite; margin: 0 auto 8px; }
+    .spinner { width: 28px; height: 28px; border: 3px solid rgba(13,110,110,0.2); border-top-color: var(--teal2); border-radius: 50%; animation: spin 0.85s linear infinite; margin: 0 auto 10px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-text { font-size: 11px; color: var(--text2); }
+    .loading-step { font-size: 11px; color: var(--text2); min-height: 16px; transition: opacity 0.3s; }
+    /* Results */
     .results { display: none; padding: 0 12px 12px; }
     .results.visible { display: block; }
     .result-section { margin-bottom: 12px; }
@@ -67,16 +69,16 @@
     .conf-medium { background: #0a2030; color: #4da6ff; }
     .conf-high { background: #0a2820; color: #1D9E75; }
     .lean-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--text2); margin-bottom: 4px; }
-    .lean-meter { position: relative; height: 14px; border-radius: 7px; background: linear-gradient(to right, #2040a0, #3060c0, #888, #c06030, #a02020); margin-bottom: 4px; }
-    .lean-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: white; border: 2px solid var(--bg); transition: left 0.5s ease; }
+    .lean-meter { position: relative; height: 14px; border-radius: 7px; background: linear-gradient(to right, #2040a0, #3060c0, #888, #c06030, #a02020); margin-bottom: 6px; }
+    .lean-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: white; border: 2px solid var(--bg); box-shadow: 0 0 0 2px white; transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
     .lean-verdict { font-size: 14px; font-weight: 700; color: #e0e8f0; text-align: center; margin-bottom: 8px; }
     .lean-signals { list-style: none; margin-bottom: 6px; }
     .lean-signals li { font-size: 10px; color: var(--text2); line-height: 1.5; padding: 2px 0 2px 12px; position: relative; }
-    .lean-signals li::before { content: '•'; position: absolute; left: 0; color: var(--teal2); }
-    .lean-note { font-size: 10px; color: #4a6080; font-style: italic; line-height: 1.4; padding-top: 4px; border-top: 1px solid var(--border); }
+    .lean-signals li::before { content: '\203a'; position: absolute; left: 0; color: var(--text2); }
+    .lean-note { font-size: 10px; color: var(--yellow); font-style: italic; line-height: 1.4; padding-top: 6px; border-top: 1px solid var(--border); }
     /* Action buttons */
-    .action-row { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
-    .btn-action { flex: 1; min-width: 60px; padding: 8px 4px; border: none; border-radius: 7px; font-size: 9px; font-weight: 600; cursor: pointer; }
+    .action-row { display: flex; gap: 5px; margin-top: 10px; }
+    .btn-action { flex: 1; min-width: 55px; padding: 8px 4px; border: none; border-radius: 7px; font-size: 9px; font-weight: 600; cursor: pointer; }
     .btn-save { background: linear-gradient(135deg, var(--teal), var(--teal2)); color: white; }
     .btn-share { background: rgba(13,110,110,0.2); color: var(--teal2); border: 1px solid var(--teal); }
     .btn-full { background: rgba(102,126,234,0.15); color: #a0b4ff; border: 1px solid rgba(102,126,234,0.3); }
@@ -139,7 +141,7 @@
 
   <div class="loading" id="loadingBox">
     <div class="spinner"></div>
-    <div class="loading-text">Distilling article...</div>
+    <div class="loading-step" id="loadingStep">Reading and analyzing content…</div>
   </div>
 
   <div class="results" id="resultsBox">
@@ -151,7 +153,7 @@
     <div class="result-section" id="leanSection" style="display:none;">
       <div class="lean-header">
         <div class="result-label">Political Lean Assessment</div>
-        <div class="lean-confidence-badge" id="leanConfidence"></div>
+        <span class="lean-confidence-badge" id="leanConfidence"></span>
       </div>
       <div class="lean-labels"><span>Left</span><span>Center-Left</span><span>Center</span><span>Center-Right</span><span>Right</span></div>
       <div class="lean-meter">

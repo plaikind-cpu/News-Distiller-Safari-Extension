@@ -3,10 +3,18 @@
 
 const API_BASE = 'https://app.news-distiller.com';
 const LEAN_POSITIONS = { 'Left': 8, 'Center-Left': 28, 'Center': 50, 'Center-Right': 72, 'Right': 92 };
+const LOADING_STEPS = [
+  'Reading and analyzing content\u2026',
+  'Identifying key themes\u2026',
+  'Extracting important points\u2026',
+  'Assessing political framing\u2026',
+  'Structuring your summary\u2026'
+];
 
 let currentTab = null;
 let lastResult = null;
 let savedCode = '';
+let loadingInterval = null;
 
 function showToast(msg, duration) {
   duration = duration || 2000;
@@ -81,8 +89,25 @@ async function testCode() {
   }
 }
 
+function startLoadingSteps() {
+  var si = 0;
+  document.getElementById('loadingStep').textContent = LOADING_STEPS[0];
+  loadingInterval = setInterval(function() {
+    si = (si + 1) % LOADING_STEPS.length;
+    document.getElementById('loadingStep').textContent = LOADING_STEPS[si];
+  }, 2000);
+}
+
+function stopLoadingSteps() {
+  if (loadingInterval) {
+    clearInterval(loadingInterval);
+    loadingInterval = null;
+  }
+}
+
 async function distillPage() {
   showLoading(true);
+  startLoadingSteps();
   hideError();
   document.getElementById('resultsBox').classList.remove('visible');
 
@@ -118,6 +143,7 @@ async function distillPage() {
     } else {
       showError('Please paste article text or enter a URL.');
       showLoading(false);
+      stopLoadingSteps();
       return;
     }
 
@@ -135,10 +161,11 @@ async function distillPage() {
         showError(d.error || d.message || 'Analysis failed. Please try again.');
       }
       showLoading(false);
+      stopLoadingSteps();
       return;
     }
 
-    // SSE streaming — accumulate chunks and show summary progressively
+    // SSE streaming — accumulate chunks, show summary progressively
     var reader = resp.body.getReader();
     var decoder = new TextDecoder();
     var buffer = '';
@@ -159,9 +186,9 @@ async function distillPage() {
         if (!payload) continue;
         var msg;
         try { msg = JSON.parse(payload); } catch(e) { continue; }
-        if (msg.error) { showError(msg.error); showLoading(false); return; }
+        if (msg.error) { showError(msg.error); showLoading(false); stopLoadingSteps(); return; }
 
-        // Accumulate JSON chunks and show summary as soon as parseable
+        // Accumulate JSON chunks — same method as web app
         if (msg.chunk) {
           accumulated += msg.chunk;
           if (!summaryShown) {
@@ -179,6 +206,7 @@ async function distillPage() {
                 document.getElementById('summaryEl').textContent = partial;
                 document.getElementById('resultsBox').classList.add('visible');
                 showLoading(false);
+                stopLoadingSteps();
                 summaryShown = true;
               }
             }
@@ -190,6 +218,7 @@ async function distillPage() {
           lastResult = msg.result;
           renderResults(msg.result);
           showLoading(false);
+          stopLoadingSteps();
         }
       }
     }
@@ -197,15 +226,14 @@ async function distillPage() {
     showError('Network error \u2014 please try again.');
   } finally {
     showLoading(false);
+    stopLoadingSteps();
   }
 }
 
 function renderResults(r) {
-  // Summary
   document.getElementById('summaryEl').textContent = r.summary || '';
 
-  // Political lean — exact field names from web app source:
-  // r.lean, r.confidence, r.signals (array), r.caveat
+  // Exact field names from web app: r.lean, r.confidence, r.signals, r.caveat
   if (r.lean) {
     var pct = LEAN_POSITIONS[r.lean] !== undefined ? LEAN_POSITIONS[r.lean] : 50;
     setTimeout(function() {
@@ -213,13 +241,11 @@ function renderResults(r) {
     }, 100);
     document.getElementById('leanVerdict').textContent = r.lean;
 
-    // Confidence pill
     var conf = (r.confidence || 'low').toLowerCase();
     var confEl = document.getElementById('leanConfidence');
     confEl.textContent = (r.confidence || '') + ' confidence';
     confEl.className = 'lean-confidence-badge conf-' + conf;
 
-    // Signals bullets
     var signalsEl = document.getElementById('leanSignals');
     signalsEl.innerHTML = '';
     (r.signals || []).forEach(function(s) {
@@ -228,7 +254,6 @@ function renderResults(r) {
       signalsEl.appendChild(li);
     });
 
-    // Caveat (italic note)
     var noteEl = document.getElementById('leanNote');
     if (r.caveat) {
       noteEl.textContent = r.caveat;
