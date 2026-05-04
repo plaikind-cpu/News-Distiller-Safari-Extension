@@ -46,9 +46,23 @@ jobs:
           echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Distribution.mobileprovision
           echo "$PROVISIONING_PROFILE_EXT_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/News-Distiller-Extension-Distribution.mobileprovision
 
+      - name: Stage extension source
+        run: |
+          rm -rf extension-src
+          mkdir -p extension-src
+          for f in manifest.json popup.html popup.js background.js content.js; do
+            if [ -f "$f" ]; then cp "$f" extension-src/; fi
+          done
+          if [ -d "Resources/images" ]; then
+            mkdir -p extension-src/images
+            cp Resources/images/*.png extension-src/images/ 2>/dev/null || true
+          fi
+          echo "=== extension-src contents ==="
+          find extension-src -type f
+
       - name: Convert web extension to Safari extension
         run: |
-          xcrun safari-web-extension-converter . \
+          xcrun safari-web-extension-converter ./extension-src \
             --project-location ./build \
             --app-name "News-Distiller" \
             --bundle-identifier com.pklmedialab.news-distiller \
@@ -87,11 +101,24 @@ jobs:
             archive \
             -archivePath build/News-Distiller.xcarchive
 
-      - name: Inject manifest.json into archive
+      - name: Inject web extension resources into archive
         run: |
           APPEX=$(find build/News-Distiller.xcarchive -name "*.appex" | head -1)
           echo "Found appex: $APPEX"
-          cp manifest.json "$APPEX/manifest.json"
+          for f in manifest.json popup.html popup.js background.js content.js; do
+            if [ -f "$f" ]; then
+              cp "$f" "$APPEX/$f"
+              echo "Injected $f"
+            fi
+          done
+          if [ -d "Resources/images" ]; then
+            mkdir -p "$APPEX/images"
+            cp Resources/images/*.png "$APPEX/images/" 2>/dev/null || true
+            echo "Injected images/"
+          fi
+          echo "=== Final .appex contents ==="
+          ls -la "$APPEX/"
+          [ -d "$APPEX/images" ] && ls -la "$APPEX/images/" || true
 
       - name: Create export options plist
         run: |
@@ -147,4 +174,3 @@ jobs:
         with:
           name: News-Distiller-IPA
           path: build/IPA/
-          retention-days: 30
