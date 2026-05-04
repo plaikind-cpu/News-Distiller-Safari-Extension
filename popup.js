@@ -1,5 +1,5 @@
 // News-Distiller Safari Extension popup.js
-// All event handlers wired via addEventListener — no inline onclick (required by MV3 CSP)
+// All handlers via addEventListener in DOMContentLoaded — required by MV3 CSP
 
 const API_BASE = 'https://app.news-distiller.com';
 const LEAN_POSITIONS = { 'Left': 8, 'Center-Left': 28, 'Center': 50, 'Center-Right': 72, 'Right': 92 };
@@ -71,11 +71,10 @@ async function testCode() {
     var d = await resp.json();
     if (d.valid) {
       var rem = d.remaining !== undefined ? d.remaining : d.distills_remaining;
-      showToast('\u2713 Valid! ' + (rem !== undefined ? rem + ' uses left.' : ''), 3000);
-    } else if (d.error) {
-      showToast('\u2717 ' + d.error, 3000);
+      var msg = rem !== undefined ? (rem === -1 ? 'Unlimited uses.' : rem + ' uses left.') : '';
+      showToast('\u2713 Valid code! ' + msg, 3000);
     } else {
-      showToast('\u2717 Code not recognized.', 3000);
+      showToast('\u2717 ' + (d.error || 'Code not recognized.'), 3000);
     }
   } catch(e) {
     showToast('Could not reach server.', 3000);
@@ -139,9 +138,11 @@ async function distillPage() {
       return;
     }
 
+    // SSE streaming
     var reader = resp.body.getReader();
     var decoder = new TextDecoder();
     var buffer = '';
+    var chunkBuffer = '';
     var summaryShown = false;
 
     while (true) {
@@ -150,6 +151,7 @@ async function distillPage() {
       buffer += decoder.decode(chunk.value, { stream: true });
       var lines = buffer.split('\n');
       buffer = lines.pop();
+
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
         if (!line.startsWith('data: ')) continue;
@@ -159,18 +161,27 @@ async function distillPage() {
         try { msg = JSON.parse(payload); } catch(e) { continue; }
         if (msg.error) { showError(msg.error); showLoading(false); return; }
 
-        // Progressive: show summary as soon as it arrives
-        if (msg.summary && !summaryShown) {
-          document.getElementById('summaryEl').textContent = msg.summary;
-          document.getElementById('resultsBox').classList.add('visible');
-          showLoading(false);
-          summaryShown = true;
+        // Accumulate JSON chunks and show summary as soon as parseable
+        if (msg.chunk) {
+          chunkBuffer += msg.chunk;
+          if (!summaryShown) {
+            try {
+              var partial = JSON.parse(chunkBuffer);
+              if (partial.summary) {
+                document.getElementById('summaryEl').textContent = partial.summary;
+                document.getElementById('resultsBox').classList.add('visible');
+                showLoading(false);
+                summaryShown = true;
+              }
+            } catch(e) {}
+          }
         }
 
         // Final done event
         if (msg.done && msg.result) {
           lastResult = msg.result;
           renderResults(msg.result);
+          showLoading(false);
         }
       }
     }
@@ -181,26 +192,42 @@ async function distillPage() {
   }
 }
 
-function getLean(r) {
-  // Handle multiple possible field names from the API
-  return r.lean || r.political_lean || r.politicalLean || null;
-}
-
-function getConfidence(r) {
-  return r.confidence || r.lean_confidence || r.leanConfidence || null;
-}
-
 function renderResults(r) {
   document.getElementById('summaryEl').textContent = r.summary || '';
 
-  var lean = getLean(r);
-  var confidence = getConfidence(r);
+  // Political lean fields from API:
+  // r.lean = "Center", r.confidence = "Medium confidence"
+  // r.bias_signals = ["signal1", "signal2"] (bullet points)
+  // r.lean_note = italic note text
+  var lean = r.lean || r.political_lean || null;
+  var confidence = r.confidence || r.lean_confidence || null;
+  var signals = r.bias_signals || r.lean_signals || r.signals || [];
+  var leanNote = r.lean_note || r.lean_summary || r.note || null;
 
   if (lean) {
     var pct = LEAN_POSITIONS[lean] !== undefined ? LEAN_POSITIONS[lean] : 50;
     document.getElementById('leanMarker').style.left = pct + '%';
-    document.getElementById('leanVerdict').textContent = lean + (confidence ? ' (' + confidence + ' confidence)' : '');
-    document.getElementById('leanConfidence').textContent = '';
+    document.getElementById('leanVerdict').textContent = lean;
+    document.getElementById('leanConfidence').textContent = confidence || '';
+
+    var signalsEl = document.getElementById('leanSignals');
+    signalsEl.innerHTML = '';
+    if (Array.isArray(signals)) {
+      signals.forEach(function(s) {
+        var li = document.createElement('li');
+        li.textContent = s;
+        signalsEl.appendChild(li);
+      });
+    }
+
+    var noteEl = document.getElementById('leanNote');
+    if (leanNote) {
+      noteEl.textContent = leanNote;
+      noteEl.style.display = 'block';
+    } else {
+      noteEl.style.display = 'none';
+    }
+
     document.getElementById('leanSection').style.display = 'block';
   } else {
     document.getElementById('leanSection').style.display = 'none';
@@ -215,11 +242,13 @@ function openFullReport() {
 
 async function copyResult() {
   if (!lastResult) return;
-  var lean = getLean(lastResult);
-  var confidence = getConfidence(lastResult);
+  var lean = lastResult.lean || lastResult.political_lean || null;
+  var confidence = lastResult.confidence || null;
+  var signals = lastResult.bias_signals || lastResult.signals || [];
   var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n' +
     (lastResult.summary || '') + '\n\n' +
-    (lean ? 'Political Lean: ' + lean + (confidence ? ' (' + confidence + ' confidence)' : '') + '\n' : '') +
+    (lean ? 'Political Lean: ' + lean + (confidence ? ' (' + confidence + ')' : '') + '\n' : '') +
+    (signals.length ? signals.map(function(s) { return '  \u2022 ' + s; }).join('\n') + '\n' : '') +
     '\nDistilled by News-Distiller (app.news-distiller.com)\n';
   try {
     await navigator.clipboard.writeText(text);
@@ -231,7 +260,7 @@ async function copyResult() {
 
 async function shareResult() {
   if (!lastResult) return;
-  var lean = getLean(lastResult);
+  var lean = lastResult.lean || null;
   var text = 'NEWS-DISTILLER SUMMARY\n\n' +
     (lastResult.summary || '') + '\n\n' +
     (lean ? 'Political Lean: ' + lean + '\n\n' : '') +

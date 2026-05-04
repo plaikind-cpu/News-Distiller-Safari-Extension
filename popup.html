@@ -60,11 +60,18 @@
     .result-section { margin-bottom: 12px; }
     .result-label { font-size: 9px; font-weight: 700; color: var(--yellow); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
     .summary-text { font-size: 12px; color: #d0e0f0; line-height: 1.7; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    /* Lean section */
+    .lean-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .lean-confidence-badge { font-size: 9px; color: var(--text2); font-style: italic; }
     .lean-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--text2); margin-bottom: 4px; }
     .lean-meter { position: relative; height: 14px; border-radius: 7px; background: linear-gradient(to right, #2040a0, #3060c0, #888, #c06030, #a02020); margin-bottom: 4px; }
     .lean-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: white; border: 2px solid var(--bg); transition: left 0.5s ease; }
-    .lean-verdict { font-size: 12px; font-weight: 700; color: #e0e8f0; text-align: center; }
-    .lean-confidence { font-size: 10px; color: var(--text2); text-align: center; margin-top: 2px; }
+    .lean-verdict { font-size: 14px; font-weight: 700; color: #e0e8f0; text-align: center; margin-bottom: 8px; }
+    .lean-signals { list-style: none; margin-bottom: 6px; }
+    .lean-signals li { font-size: 10px; color: var(--text2); line-height: 1.5; padding: 2px 0 2px 12px; position: relative; }
+    .lean-signals li::before { content: '•'; position: absolute; left: 0; color: var(--teal2); }
+    .lean-note { font-size: 10px; color: #4a6080; font-style: italic; line-height: 1.4; padding-top: 4px; border-top: 1px solid var(--border); }
+    /* Action buttons */
     .action-row { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
     .btn-action { flex: 1; min-width: 60px; padding: 8px 4px; border: none; border-radius: 7px; font-size: 9px; font-weight: 600; cursor: pointer; }
     .btn-save { background: linear-gradient(135deg, var(--teal), var(--teal2)); color: white; }
@@ -137,15 +144,21 @@
       <div class="result-label">Executive Summary</div>
       <div class="summary-text" id="summaryEl"></div>
     </div>
+
     <div class="result-section" id="leanSection" style="display:none;">
-      <div class="result-label">Political Lean</div>
-      <div class="lean-labels"><span>Left</span><span>Center</span><span>Right</span></div>
+      <div class="lean-header">
+        <div class="result-label">Political Lean Assessment</div>
+        <div class="lean-confidence-badge" id="leanConfidence"></div>
+      </div>
+      <div class="lean-labels"><span>Left</span><span>Center-Left</span><span>Center</span><span>Center-Right</span><span>Right</span></div>
       <div class="lean-meter">
         <div class="lean-marker" id="leanMarker" style="left:50%"></div>
       </div>
       <div class="lean-verdict" id="leanVerdict"></div>
-      <div class="lean-confidence" id="leanConfidence"></div>
+      <ul class="lean-signals" id="leanSignals"></ul>
+      <div class="lean-note" id="leanNote" style="display:none;"></div>
     </div>
+
     <div class="action-row">
       <button class="btn-action btn-save" id="saveBtn">📋 Copy</button>
       <button class="btn-action btn-share" id="shareBtn">📤 Share</button>
