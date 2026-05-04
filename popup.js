@@ -16,6 +16,11 @@ function showToast(msg, duration) {
   setTimeout(function() { el.classList.remove('visible'); }, duration);
 }
 
+function collapseAuth() {
+  document.getElementById('accBody').classList.remove('open');
+  document.getElementById('accChevron').classList.remove('open');
+}
+
 function toggleAccess() {
   var body = document.getElementById('accBody');
   var chevron = document.getElementById('accChevron');
@@ -50,6 +55,7 @@ async function saveCode() {
   await chrome.storage.local.set({ nd_code: code });
   updateCodeBadge();
   showToast(code ? 'Code saved!' : 'Code cleared.');
+  setTimeout(collapseAuth, 800);
 }
 
 async function testCode() {
@@ -57,19 +63,18 @@ async function testCode() {
   if (!code) { showToast('No code to test.'); return; }
   showToast('Testing...', 3000);
   try {
-    var resp = await fetch(API_BASE + '/api/status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: code })
-    });
+    var resp = await fetch(API_BASE + '/api/status?code=' + encodeURIComponent(code));
     var d = await resp.json();
-    if (d.valid) {
-      showToast('\u2713 Valid! ' + (d.remaining !== undefined ? d.remaining + ' uses left.' : ''), 3000);
+    if (d.valid || d.distills_remaining !== undefined) {
+      var rem = d.distills_remaining !== undefined ? d.distills_remaining : d.remaining;
+      showToast('\u2713 Valid! ' + (rem !== undefined ? rem + ' uses left.' : ''), 3000);
+    } else if (d.free_remaining !== undefined && !code) {
+      showToast('Free tier: ' + d.free_remaining + ' distillations left.', 3000);
     } else {
-      showToast('\u2717 Code invalid or expired.', 3000);
+      showToast('\u2717 Code not recognized.', 3000);
     }
   } catch(e) {
-    showToast('Network error testing code.', 3000);
+    showToast('Could not reach server.', 3000);
   }
 }
 
@@ -130,9 +135,12 @@ async function distillPage() {
       return;
     }
 
+    // SSE streaming — show summary progressively as it arrives
     var reader = resp.body.getReader();
     var decoder = new TextDecoder();
     var buffer = '';
+    var summaryShown = false;
+
     while (true) {
       var chunk = await reader.read();
       if (chunk.done) break;
@@ -147,6 +155,16 @@ async function distillPage() {
         var msg;
         try { msg = JSON.parse(payload); } catch(e) { continue; }
         if (msg.error) { showError(msg.error); showLoading(false); return; }
+
+        // Progressive rendering — show summary as soon as it arrives
+        if (msg.summary && !summaryShown) {
+          document.getElementById('summaryEl').textContent = msg.summary;
+          document.getElementById('resultsBox').classList.add('visible');
+          showLoading(false);
+          summaryShown = true;
+        }
+
+        // Final done event — render full results including lean
         if (msg.done && msg.result) {
           lastResult = msg.result;
           renderResults(msg.result);
@@ -162,23 +180,29 @@ async function distillPage() {
 
 function renderResults(r) {
   document.getElementById('summaryEl').textContent = r.summary || '';
+
   if (r.lean) {
     var pct = LEAN_POSITIONS[r.lean] !== undefined ? LEAN_POSITIONS[r.lean] : 50;
     document.getElementById('leanMarker').style.left = pct + '%';
-    document.getElementById('leanVerdict').textContent = r.lean;
-    document.getElementById('leanConfidence').textContent = r.confidence ? r.confidence + ' confidence' : '';
+    document.getElementById('leanVerdict').textContent = r.lean + (r.confidence ? ' (' + r.confidence + ' confidence)' : '');
+    document.getElementById('leanConfidence').textContent = '';
     document.getElementById('leanSection').style.display = 'block';
   } else {
     document.getElementById('leanSection').style.display = 'none';
   }
+
   document.getElementById('resultsBox').classList.add('visible');
+}
+
+function openFullReport() {
+  chrome.tabs.create({ url: API_BASE });
 }
 
 async function copyResult() {
   if (!lastResult) return;
   var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n' +
     (lastResult.summary || '') + '\n\n' +
-    (lastResult.lean ? 'Political Lean: ' + lastResult.lean + '\n' : '') +
+    (lastResult.lean ? 'Political Lean: ' + lastResult.lean + (lastResult.confidence ? ' (' + lastResult.confidence + ' confidence)' : '') + '\n' : '') +
     '\nDistilled by News-Distiller (app.news-distiller.com)\n';
   try {
     await navigator.clipboard.writeText(text);
@@ -197,9 +221,7 @@ async function shareResult() {
   if (navigator.share) {
     try {
       await navigator.share({ title: 'News-Distiller Summary', text: text });
-    } catch(e) {
-      copyResult();
-    }
+    } catch(e) { copyResult(); }
   } else {
     copyResult();
   }
@@ -227,25 +249,17 @@ function hideError() {
   document.getElementById('errorBox').classList.remove('visible');
 }
 
-// Wire up ALL event listeners here — no inline onclick handlers (blocked by MV3 CSP on Safari iOS)
 document.addEventListener('DOMContentLoaded', async function() {
-  // Nav code badge + access header toggle
   document.getElementById('navCodeBadge').addEventListener('click', toggleAccess);
   document.getElementById('accHeader').addEventListener('click', toggleAccess);
-
-  // Code buttons
   document.getElementById('saveCodeBtn').addEventListener('click', saveCode);
   document.getElementById('testCodeBtn').addEventListener('click', testCode);
-
-  // Main distill button
   document.getElementById('distillBtn').addEventListener('click', distillPage);
-
-  // Result buttons
   document.getElementById('saveBtn').addEventListener('click', copyResult);
   document.getElementById('shareBtn').addEventListener('click', shareResult);
+  document.getElementById('fullReportBtn').addEventListener('click', openFullReport);
   document.getElementById('newBtn').addEventListener('click', resetUI);
 
-  // Char count
   document.getElementById('pasteArea').addEventListener('input', function() {
     var text = this.value;
     var chars = text.length;
@@ -253,7 +267,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('charCount').textContent = chars + ' chars \u00b7 ~' + words + ' words';
   });
 
-  // Load saved code
   var stored = await chrome.storage.local.get('nd_code');
   savedCode = stored.nd_code || '';
   if (savedCode) {
@@ -261,7 +274,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
   updateCodeBadge();
 
-  // Get current tab URL
   try {
     var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     currentTab = tabs[0];
