@@ -26,8 +26,7 @@
     .auth-status { font-size: 11px; color: #6688aa; min-height: 14px; }
     .auth-status.ok { color: #1D9E75; }
     .auth-status.error { color: #e53e3e; }
-    .trial-link { font-size: 10px; color: #11998E; text-decoration: none; margin-top: 4px; display: inline-block; }
-    .trial-link:hover { text-decoration: underline; }
+
     .page-url { font-size: 10px; color: #3a5070; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .paywall-warning { background: #2a1f00; border: 1px solid #4a3a00; border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #cc8800; margin-bottom: 8px; }
     .check-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #0D6E6E 0%, #11998E 100%); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
@@ -68,14 +67,23 @@
     .btn-full { background: #0D6E6E; color: white; }
     .btn-copy { background: rgba(13,110,110,0.2); color: #11998E; border: 1px solid #0D6E6E; }
     .btn-new { background: #2a3a50; color: #88aacc; }
+    .help-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 9999; padding: 12px; overflow-y: auto; }
+    .help-overlay.show { display: block; }
+    .help-modal { background: #0D1525; border: 1px solid #2a3a50; border-radius: 10px; padding: 14px 16px 16px; max-width: 360px; margin: 0 auto; color: #e0e8f0; }
+    .help-modal h2 { font-size: 14px; color: #11998E; margin-bottom: 8px; }
+    .help-modal h3 { font-size: 12px; color: #f0c040; margin-top: 12px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+    .help-modal p, .help-modal li { font-size: 12px; line-height: 1.55; color: #c0d0e0; margin-bottom: 6px; }
+    .help-modal ul { margin: 4px 0 6px 16px; }
+    .help-modal kbd { background: #1a2a40; border: 1px solid #2a3a50; border-radius: 4px; padding: 1px 6px; font-family: -apple-system, monospace; font-size: 11px; color: #88bbff; }
+    .help-modal .help-close { position: sticky; top: 0; float: right; background: #1a2a40; border: 1px solid #2a3a50; color: #e0e8f0; width: 28px; height: 28px; border-radius: 14px; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; display: flex; align-items: center; justify-content: center; }
+    .help-modal .help-section { background: #162030; border-radius: 6px; padding: 8px 10px; margin-top: 6px; }
   </style>
 </head>
 <body>
   <img src="images/splash.png" alt="News-Distiller" style="width:100%;display:block;max-height:110px;object-fit:cover;object-position:center top;" onerror="this.style.display='none'">
 
   <div class="header-links">
-    <a href="https://app.news-distiller.com/help.html" target="_blank">❓ Help</a>
-    <a href="https://pklmedialab.com" target="_blank">🌐 PKLMediaLab</a>
+    <a href="#" id="helpLink">❓ Help</a>
   </div>
 
   <div class="content">
@@ -86,13 +94,12 @@
       </div>
       <div class="auth-body" id="authBody">
         <div class="auth-row">
-          <input type="text" class="code-input" id="accessCode" placeholder="Enter Distiller Pack code..."
+          <input type="text" class="code-input" id="accessCode" placeholder="Enter access code (optional)"
             autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
           <button class="btn-sm btn-save" id="saveCodeBtn">Save</button>
           <button class="btn-sm btn-test" id="testCodeBtn">Test</button>
         </div>
-        <div class="auth-status" id="authStatus">Enter your Distiller Pack code to get started</div>
-        <a href="https://pklmedialab.com/nd-get-started.html" target="_blank" class="trial-link">Need a code? Get a Distiller Pack →</a>
+        <div class="auth-status" id="authStatus">Enter your access code (optional)</div>
       </div>
     </div>
 
@@ -142,6 +149,56 @@
     </div>
   </div>
 
+  <div class="help-overlay" id="helpOverlay" role="dialog" aria-labelledby="helpTitle">
+    <div class="help-modal">
+      <button class="help-close" id="helpClose" aria-label="Close help">×</button>
+      <h2 id="helpTitle">📚 News-Distiller Help</h2>
+
+      <p>News-Distiller summarizes any news article and identifies its political lean using AI.</p>
+
+      <h3>How to use</h3>
+      <ul>
+        <li>Open any article in Safari, then tap the News-Distiller button.</li>
+        <li>Tap <kbd>🔍 Distill This Page</kbd> — you'll get an Executive Summary and a Political Lean Assessment.</li>
+        <li>Or paste the article text into the box and tap <kbd>🔍 Distill This Text</kbd>.</li>
+      </ul>
+
+      <h3>Intended use</h3>
+      <p>News-Distiller works on most sites, including paywalled ones. Please use it only with articles you're authorized to read — sites you subscribe to, gift links you've received, or freely-published content. Respect publisher paywalls.</p>
+
+      <h3>Free distillations</h3>
+      <p>Without an access code, you get 5 free distillations. After that, you'll need an access code to continue.</p>
+
+      <h3>Access codes</h3>
+      <p>If you have a News-Distiller iOS access code, enter it in the Access Code box and tap <kbd>Save</kbd>. iOS access codes start with <kbd>NDi-</kbd>. Codes for the desktop Chrome version don't work here, and vice versa.</p>
+
+      <h3>Full Report</h3>
+      <p>After distilling, tap <kbd>📄 Full Report</kbd> to see a detailed view with Executive Summary, Key Findings, Implications, Context, and Political Lean Assessment.</p>
+
+      <h3>Saving as PDF</h3>
+      <p>Open the Full Report, then tap Safari's share icon → tap <kbd>Options</kbd> at the top → select <kbd>PDF</kbd>. From there you can Mail, Message, AirDrop, or save to Files.</p>
+
+      <h3>Privacy</h3>
+      <p>News-Distiller only sees the article text you ask it to analyze. Nothing else is read or stored from your browsing.</p>
+
+      <div class="help-section">
+        <p style="margin:0;color:#88aacc;font-size:11px;">News-Distiller is built on Anthropic's Claude AI.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var helpLink = document.getElementById('helpLink');
+      var helpOverlay = document.getElementById('helpOverlay');
+      var helpClose = document.getElementById('helpClose');
+      function showHelp(e) { if (e) e.preventDefault(); helpOverlay.classList.add('show'); }
+      function hideHelp() { helpOverlay.classList.remove('show'); }
+      if (helpLink) helpLink.addEventListener('click', showHelp);
+      if (helpClose) helpClose.addEventListener('click', hideHelp);
+      if (helpOverlay) helpOverlay.addEventListener('click', function(e) { if (e.target === helpOverlay) hideHelp(); });
+    })();
+  </script>
   <script src="popup.js"></script>
 </body>
 </html>
