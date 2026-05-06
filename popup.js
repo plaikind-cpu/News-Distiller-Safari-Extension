@@ -78,7 +78,7 @@ async function testCode() {
     var r = await fetch(SERVER_URL + '/api/validate-code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: code })
+      body: JSON.stringify({ code: code, platform: 'ios' })
     });
     var d = await r.json();
     if (d.valid) {
@@ -325,7 +325,7 @@ async function runDistill(text, code) {
     var resp = await fetch(SERVER_URL + '/api/distill', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text.substring(0, 15000), code: code, style: 'executive' })
+      body: JSON.stringify({ text: text.substring(0, 15000), code: code, style: 'executive', platform: 'ios' })
     });
 
     if (!resp.ok) {
