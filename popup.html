@@ -29,6 +29,8 @@
 
     .page-url { font-size: 10px; color: #3a5070; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .paywall-warning { background: #2a1f00; border: 1px solid #4a3a00; border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #cc8800; margin-bottom: 8px; }
+    .intended-use { background: #0f2030; border: 1px solid rgba(13,110,110,0.35); border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #88aacc; margin-bottom: 8px; line-height: 1.5; }
+    .intended-use strong { color: #11998E; font-weight: 700; }
     .check-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #0D6E6E 0%, #11998E 100%); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
     .check-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .or-divider { text-align: center; color: #3a5070; font-size: 11px; margin: 4px 0 8px; }
@@ -101,6 +103,10 @@
         </div>
         <div class="auth-status" id="authStatus">Enter your access code (optional)</div>
       </div>
+    </div>
+
+    <div class="intended-use" id="intendedUse">
+      <strong>Intended use:</strong> Use only with content you're authorized to read — sites you subscribe to or freely-published articles. Please respect publisher paywalls.
     </div>
 
     <div class="remaining-banner" id="remainingBanner"></div>
@@ -187,18 +193,6 @@
     </div>
   </div>
 
-  <script>
-    (function() {
-      var helpLink = document.getElementById('helpLink');
-      var helpOverlay = document.getElementById('helpOverlay');
-      var helpClose = document.getElementById('helpClose');
-      function showHelp(e) { if (e) e.preventDefault(); helpOverlay.classList.add('show'); }
-      function hideHelp() { helpOverlay.classList.remove('show'); }
-      if (helpLink) helpLink.addEventListener('click', showHelp);
-      if (helpClose) helpClose.addEventListener('click', hideHelp);
-      if (helpOverlay) helpOverlay.addEventListener('click', function(e) { if (e.target === helpOverlay) hideHelp(); });
-    })();
-  </script>
   <script src="popup.js"></script>
 </body>
 </html>

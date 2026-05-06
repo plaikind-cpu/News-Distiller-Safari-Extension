@@ -39,6 +39,16 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('saveBtn').addEventListener('click', copyReport);
   document.getElementById('newCheckBtn').addEventListener('click', resetResults);
   document.getElementById('fullReportBtn').addEventListener('click', openFullReport);
+
+  // Help modal wiring
+  var helpLink = document.getElementById('helpLink');
+  var helpOverlay = document.getElementById('helpOverlay');
+  var helpClose = document.getElementById('helpClose');
+  function _showHelp(e) { if (e) e.preventDefault(); if (helpOverlay) helpOverlay.classList.add('show'); }
+  function _hideHelp() { if (helpOverlay) helpOverlay.classList.remove('show'); }
+  if (helpLink) helpLink.addEventListener('click', _showHelp);
+  if (helpClose) helpClose.addEventListener('click', _hideHelp);
+  if (helpOverlay) helpOverlay.addEventListener('click', function(e) { if (e.target === helpOverlay) _hideHelp(); });
 });
 
 function toggleAuth() {
