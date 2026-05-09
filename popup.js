@@ -1,6 +1,38 @@
 // News-Distiller Safari Extension popup.js
 
 const SERVER_URL = 'https://app.news-distiller.com';
+
+const DEMO_RESULT = {
+  summary: "Sir David Attenborough, the legendary British wildlife broadcaster and climate campaigner, celebrates his 100th birthday on May 8, 2026. Born in 1926, he has spent decades bringing intimate nature documentaries to hundreds of millions of viewers worldwide, becoming a beloved British icon. The milestone is being marked with special BBC broadcasts, concerts, museum events, and widespread public celebration across the UK.",
+  sections: [
+    { title: "Context / Background", points: [
+        "Born in 1926 in suburban London, collected fossils as a child and studied zoology at Cambridge",
+        "Started BBC career as manager before moving on-camera at age 30 after someone else got ill",
+        "Has been making wildlife documentaries for over 70 years, witnessing major historical periods from Great Depression through WWII to present"
+    ]},
+    { title: "Key Findings", points: [
+        "Celebrated across Britain as a national hero with fans gathering in animal costumes at Trafalgar Square",
+        "Special events include BBC broadcasts, Royal Albert Hall concert, science museum exhibitions, and nature walks",
+        "Famous for iconic moments like cuddling with gorillas in Rwanda (1978) and wrestling a Burmese python on live TV (1956)",
+        "Colleagues describe him as an 'animal whisperer' who connects easily with everyone from scientists to field assistants"
+    ]},
+    { title: "Implications", points: [
+        "Demonstrates the lasting cultural impact of educational broadcasting and nature documentary filmmaking",
+        "Shows how one individual can shape public understanding and appreciation of wildlife across multiple generations",
+        "Scientists continue to honor his legacy by naming species after him, including a parasitic wasp for his 100th birthday"
+    ]}
+  ],
+  lean: "Center",
+  confidence: "High",
+  signals: [
+    "Celebratory but factual tone about widely respected figure",
+    "Focuses on biographical details and career achievements without political messaging"
+  ],
+  caveat: "This is a straightforward celebratory profile of a universally respected cultural figure with no detectable political bias."
+};
+const DEMO_URL   = "https://www.npr.org/2026/05/08/nx-s1-5802305/david-attenborough-celebrates-his-100th-birthday";
+const DEMO_TITLE = "David Attenborough celebrates his 100th birthday — NPR";
+
 const LEAN_POSITIONS = { 'Left': 8, 'Center-Left': 28, 'Center': 50, 'Center-Right': 72, 'Right': 92 };
 const LOADING_STEPS = [
   'Reading and analyzing content\u2026',
@@ -36,6 +68,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('testCodeBtn').addEventListener('click', testCode);
   document.getElementById('checkBtn').addEventListener('click', checkCurrentPage);
   document.getElementById('checkCustomBtn').addEventListener('click', checkCustomText);
+  var sampleBtn = document.getElementById('sampleBtn');
+  if (sampleBtn) sampleBtn.addEventListener('click', showDemo);
   document.getElementById('saveBtn').addEventListener('click', copyReport);
   document.getElementById('newCheckBtn').addEventListener('click', resetResults);
   document.getElementById('fullReportBtn').addEventListener('click', openFullReport);
@@ -395,6 +429,13 @@ async function runDistill(text, code) {
   }
 }
 
+function showDemo() {
+  var r = DEMO_RESULT;
+  _savedResult = r;
+  _savedMeta = { url: DEMO_URL, title: DEMO_TITLE };
+  renderResults(r);
+}
+
 function renderResults(r) {
   document.getElementById('summaryText').textContent = r.summary || '';
   document.getElementById('summaryCard').style.display = 'block';
@@ -686,6 +727,8 @@ function resetResults() {
   document.getElementById('customText').value = '';
   _savedResult = null;
   _savedMeta = null;
+  var db = document.getElementById('demoBanner');
+  if (db) db.style.display = 'none';
 }
 
 function showLoading(on) {
