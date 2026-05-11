@@ -710,7 +710,7 @@ function _openFullReportWithPDF(jspdfContent) {
     '}',
     '<\/script>',
     '<script>',
-    '(function(){',
+    'document.addEventListener("DOMContentLoaded",function(){',
     '  var b=document.getElementById("ndAaBtn");',
     '  if(!b)return;',
     '  try{if(localStorage.getItem("nd_large_text_report")==="1"){document.body.classList.add("large-text");b.classList.add("active");}}catch(e){}',
@@ -719,7 +719,7 @@ function _openFullReportWithPDF(jspdfContent) {
     '    b.classList.toggle("active",on);',
     '    try{localStorage.setItem("nd_large_text_report",on?"1":"0");}catch(e){}',
     '  });',
-    '})();',
+    '});',
     '<\/script>',
     '</body></html>'
   ].join('');
