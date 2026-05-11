@@ -50,7 +50,7 @@ jobs:
         run: |
           rm -rf extension-src
           mkdir -p extension-src
-          for f in manifest.json popup.html popup.js background.js content.js; do
+          for f in manifest.json popup.html popup.js background.js content.js report.html report.js; do
             if [ -f "$f" ]; then cp "$f" extension-src/; fi
           done
           if [ -d "Resources/images" ]; then
@@ -97,7 +97,7 @@ jobs:
             CODE_SIGN_IDENTITY="Apple Distribution: PAUL KEVIN LAIKIND (4FPWPSM7JG)" \
             DEVELOPMENT_TEAM=4FPWPSM7JG \
             CURRENT_PROJECT_VERSION=$BUILD_NUM \
-            MARKETING_VERSION=1.6.2 \
+            MARKETING_VERSION=1.6.3 \
             archive \
             -archivePath build/News-Distiller.xcarchive
 
@@ -105,7 +105,7 @@ jobs:
         run: |
           APPEX=$(find build/News-Distiller.xcarchive -name "*.appex" | head -1)
           echo "Found appex: $APPEX"
-          for f in manifest.json popup.html popup.js background.js content.js; do
+          for f in manifest.json popup.html popup.js background.js content.js report.html report.js; do
             if [ -f "$f" ]; then
               cp "$f" "$APPEX/$f"
               echo "Injected $f"
