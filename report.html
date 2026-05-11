@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>News-Distiller Report</title>
+  <style id="static-style">
+    /* Aa toggle — defined here so it renders before dynamic style loads */
+    #ndAaBtn{position:fixed;top:14px;right:14px;z-index:9999;background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:6px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.2);}
+    #ndAaBtn:hover{background:rgba(0,0,0,0.75);}
+    #ndAaBtn.active{background:#0D6E6E;border-color:rgba(255,255,255,0.4);}
+    #loading{font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:40px;text-align:center;color:#0D6E6E;}
+    @media print{#ndAaBtn{display:none!important;}}
+  </style>
+  <style id="dyn-style"></style>
+</head>
+<body>
+  <button id="ndAaBtn" type="button" aria-label="Toggle large text">Aa</button>
+  <div id="content">
+    <div id="loading">Loading report…</div>
+  </div>
+  <script src="report.js"></script>
+</body>
+</html>
