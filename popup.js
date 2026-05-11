@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('checkCustomBtn').addEventListener('click', checkCustomText);
   var sampleBtn = document.getElementById('sampleBtn');
   if (sampleBtn) sampleBtn.addEventListener('click', showDemo);
+  initTextToggle();
   document.getElementById('saveBtn').addEventListener('click', copyReport);
   document.getElementById('newCheckBtn').addEventListener('click', resetResults);
   document.getElementById('fullReportBtn').addEventListener('click', openFullReport);
@@ -544,7 +545,7 @@ function _openFullReportWithPDF(jspdfContent) {
             '<div style="position:absolute;top:50%;left:' + pct + '%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;background:white;border:3px solid #222;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>' +
           '</div>' +
         '</div>' +
-        '<div style="font-size:24px;font-weight:800;color:#0D6E6E;text-align:center;margin:12px 0 10px;">' + esc(d.lean) + '</div>';
+        '<div style="font-size:28px;font-weight:800;color:#0D6E6E;text-align:center;margin:12px 0 10px;">' + esc(d.lean) + '</div>';
     if (d.signals && d.signals.length) {
       leanHtml += '<ul class="signals">';
       d.signals.forEach(function(s) { leanHtml += '<li>' + esc(s) + '</li>'; });
@@ -583,34 +584,34 @@ function _openFullReportWithPDF(jspdfContent) {
     '*{box-sizing:border-box;margin:0;padding:0;}',
     'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;',
     '  max-width:820px;margin:0 auto;padding:32px 28px;background:#f4f6f9;color:#1a2a3a;}',
-    'h1{font-size:24px;color:#0D6E6E;margin-bottom:2px;font-weight:800;}',
-    '.report-ts{font-size:12px;color:#888;margin-bottom:20px;}',
-    'h2{font-size:13px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:.6px;',
+    'h1{font-size:28px;color:#0D6E6E;margin-bottom:2px;font-weight:800;}',
+    '.report-ts{font-size:14px;color:#888;margin-bottom:20px;}',
+    'h2{font-size:15px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:.6px;',
     '  border-bottom:2px solid #11998E;padding-bottom:5px;margin:24px 0 10px;}',
     '.article-meta{background:white;border-left:5px solid #0D6E6E;border-radius:0 8px 8px 0;',
     '  padding:14px 18px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06);}',
-    '.article-title{font-size:17px;font-weight:700;color:#1a2a3a;margin-bottom:5px;line-height:1.4;}',
-    '.article-byline{font-size:12px;color:#555;margin-bottom:4px;}',
-    '.article-url{font-size:11px;word-break:break-all;} .article-url a{color:#0D6E6E;}',
+    '.article-title{font-size:20px;font-weight:700;color:#1a2a3a;margin-bottom:5px;line-height:1.4;}',
+    '.article-byline{font-size:14px;color:#555;margin-bottom:4px;}',
+    '.article-url{font-size:13px;word-break:break-all;} .article-url a{color:#0D6E6E;}',
     '.summary{background:white;border-radius:8px;padding:16px 18px;',
     '  font-size:14px;line-height:1.8;color:#2a3a4a;box-shadow:0 1px 4px rgba(0,0,0,.06);}',
     'ul{margin:0 0 4px 0;padding-left:18px;}',
-    'li{font-size:13px;color:#2a3a4a;line-height:1.75;margin-bottom:3px;padding-left:4px;}',
+    'li{font-size:15px;color:#2a3a4a;line-height:1.75;margin-bottom:3px;padding-left:4px;}',
     '.lean-box{background:white;border-radius:8px;padding:18px;',
     '  box-shadow:0 1px 4px rgba(0,0,0,.06);}',
     '.lean-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}',
     '.lean-label-sm{font-size:11px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:.5px;}',
     '.signals{list-style:none;padding:0;margin:4px 0 10px;}',
-    '.signals li{font-size:12px;color:#445566;padding:3px 0 3px 14px;position:relative;line-height:1.5;}',
+    '.signals li{font-size:14px;color:#445566;padding:3px 0 3px 14px;position:relative;line-height:1.5;}',
     '.signals li::before{content:"\u203a";position:absolute;left:0;color:#0D6E6E;font-weight:700;}',
-    '.caveat{font-size:12px;color:#cc8800;font-style:italic;margin-top:10px;',
+    '.caveat{font-size:14px;color:#cc8800;font-style:italic;margin-top:10px;',
     '  padding-top:10px;border-top:1px solid #eee;line-height:1.5;}',
     '.pdf-hint{font-size:14px;color:#1a2a3a;background:#eef2ff;border:2px solid #0D6E6E;border-radius:10px;padding:16px 18px;margin:24px 0 8px;line-height:1.6;display:flex;gap:14px;align-items:flex-start;box-shadow:0 2px 8px rgba(13,110,110,0.15);}',
     '.pdf-hint .share-icon{flex-shrink:0;width:28px;height:36px;color:#0D6E6E;}',
     '.pdf-hint-text{flex:1;}',
     '.pdf-hint-title{font-weight:800;color:#0D6E6E;margin-bottom:4px;font-size:15px;}',
-    '.pdf-hint kbd{display:inline-block;background:white;border:1px solid #b8d8d8;border-radius:5px;padding:1px 7px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;font-weight:700;color:#0D6E6E;box-shadow:0 1px 0 rgba(0,0,0,0.05);}',
-    '.btn{padding:12px 24px;border:none;border-radius:8px;font-size:13px;font-weight:700;',
+    '.pdf-hint kbd{display:inline-block;background:white;border:1px solid #b8d8d8;border-radius:5px;padding:1px 7px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;font-weight:700;color:#0D6E6E;box-shadow:0 1px 0 rgba(0,0,0,0.05);}',
+    '.btn{padding:12px 24px;border:none;border-radius:8px;font-size:15px;font-weight:700;',
     '  cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;',
     '  transition:opacity .15s;}',
     '.footer{font-size:11px;color:#aaa;margin-top:28px;padding-top:14px;border-top:1px solid #dde;text-align:center;}',
@@ -753,3 +754,21 @@ function showError(msg) {
 }
 function hideError() { document.getElementById('errorMsg').style.display = 'none'; }
 function hideResults() { document.getElementById('results').style.display = 'none'; }
+
+
+// ── Large text toggle ─────────────────────────────────────────────────────
+function initTextToggle() {
+  const btn = document.getElementById('textToggleBtn');
+  if (!btn) return;
+  // Restore saved preference
+  if (localStorage.getItem('nd_large_text') === '1') {
+    document.body.classList.add('large-text');
+    btn.classList.add('active');
+  }
+  btn.addEventListener('click', function() {
+    const isLarge = document.body.classList.toggle('large-text');
+    btn.classList.toggle('active', isLarge);
+    localStorage.setItem('nd_large_text', isLarge ? '1' : '0');
+  });
+}
+
