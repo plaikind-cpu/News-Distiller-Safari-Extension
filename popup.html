@@ -7,10 +7,9 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { width: 380px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0D1525; color: #e0e8f0; }
-    .splash-wrap { position: relative; }
-    .header-links { position: absolute; top: 6px; right: 6px; display: flex; gap: 6px; z-index: 5; }
-    .header-links a { padding: 3px 10px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.25); border-radius: 20px; color: #fff; font-size: 11px; font-weight: 600; text-decoration: none; }
-    .header-links a:hover { background: rgba(0,0,0,0.65); }
+    .header-links { display: flex; justify-content: flex-end; gap: 6px; padding: 6px 10px; background: #0D1525; border-bottom: 1px solid #1a2a40; }
+    .header-links a { padding: 3px 10px; background: rgba(13,110,110,0.15); border: 1px solid rgba(13,110,110,0.4); border-radius: 20px; color: #11998E; font-size: 11px; font-weight: 600; text-decoration: none; }
+    .header-links a:hover { background: rgba(13,110,110,0.3); }
     .content { padding: 12px; }
     .auth-card { background: #162030; border: 1px solid #2a3a50; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
     .auth-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
@@ -114,12 +113,12 @@
   
     /* Large text toggle */
     .text-toggle { 
-      background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.25); border-radius: 20px;
-      color: #fff; font-size: 11px; font-weight: 700; 
-      padding: 3px 10px; cursor: pointer; line-height: 1;
+      background: none; border: 1px solid #2a3a50; border-radius: 4px;
+      color: #6080a0; font-size: 11px; font-weight: 700; 
+      padding: 2px 6px; cursor: pointer; line-height: 1;
     }
-    .text-toggle:hover { background: rgba(0,0,0,0.65); }
-    .text-toggle.active { background: rgba(17,153,142,0.85); border-color: rgba(255,255,255,0.4); }
+    .text-toggle:hover { border-color: #11998E; color: #11998E; }
+    .text-toggle.active { border-color: #11998E; color: #11998E; background: rgba(17,153,142,0.1); }
     
     body.large-text { font-size: 17px; }
     body.large-text .advisory-card,
@@ -172,12 +171,11 @@
   </style>
 </head>
 <body>
-  <div class="splash-wrap">
-    <img src="images/splash.png" alt="News-Distiller" style="width:100%;display:block;" onerror="this.style.display='none'">
-    <div class="header-links">
-      <button class="text-toggle" id="textToggleBtn">Aa</button>
-      <a href="#" id="helpLink">❓ Help</a>
-    </div>
+  <img src="images/splash.png" alt="News-Distiller" style="width:100%;display:block;max-height:110px;object-fit:cover;object-position:center top;" onerror="this.style.display='none'">
+
+  <div class="header-links">
+    <button class="text-toggle" id="textToggleBtn">Aa</button>
+    <a href="#" id="helpLink">❓ Help</a>
   </div>
 
   <div class="content">
@@ -194,6 +192,12 @@
           <button class="btn-sm btn-test" id="testCodeBtn">Test</button>
         </div>
         <div class="auth-status" id="authStatus">Enter your access code (optional)</div>
+        <div style="margin-top:6px;font-size:11px;text-align:center;">
+          <a href="https://pklmedialab.com" target="_blank"
+             style="color:#11998E;text-decoration:none;font-weight:600;">
+            Need a code? Visit pklmedialab.com to request a free Distiller Pack
+          </a>
+        </div>
       </div>
     </div>
 
