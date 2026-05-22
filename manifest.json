@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "TruthPrism",
-  "version": "1.4",
-  "description": "AI-powered fact-checker and context scorer. Verify any article instantly.",
+  "name": "News-Distiller",
+  "version": "1.1",
+  "description": "AI-powered news summarizer. Distill any article into key points and political lean analysis.",
   "icons": {
     "16": "images/icon16.png",
     "48": "images/icon48.png",
@@ -14,7 +14,7 @@
       "48": "images/icon48.png",
       "128": "images/icon128.png"
     },
-    "default_title": "TruthPrism",
+    "default_title": "News-Distiller",
     "default_popup": "popup.html"
   },
   "permissions": [
@@ -27,30 +27,19 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": [
-        "report.html",
-        "report.js"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
+      "resources": ["report.html", "report.js"],
+      "matches": ["<all_urls>"]
     }
   ],
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     }
   ],
   "background": {
-    "scripts": [
-      "background.js"
-    ],
+    "scripts": ["background.js"],
     "persistent": false
   }
 }

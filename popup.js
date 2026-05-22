@@ -1,45 +1,58 @@
-// TruthPrism Safari Extension popup.js
+// News-Distiller Safari Extension popup.js
 
-const SERVER_URL = 'https://app.truthprism.app';
-
-const LEAN_POSITIONS = { 'Left': 8, 'Center-Left': 28, 'Center': 50, 'Center-Right': 72, 'Right': 92 };
-
-let _savedResult = null;
+const SERVER_URL = 'https://app.news-distiller.com';
 
 const DEMO_RESULT = {
-  score: 7,
-  context_score: 8,
-  headline: "David Attenborough celebrates his 100th birthday with widespread public acclaim for his seven-decade career.",
-  executive_summary: "Sir David Attenborough, the renowned British wildlife documentarian and climate campaigner, celebrates his 100th birthday on May 8, 2026, with special events across London including concerts, museum exhibitions, and public gatherings. Born in 1926, Attenborough has spent over seven decades bringing intimate nature scenes to hundreds of millions of viewers through his BBC documentaries, earning him status as a British national hero.",
-  claims: [
-    { claim: "Attenborough's documentaries have brought intimate nature scenes to hundreds of millions of viewers worldwide", verdict: "Supported", confidence: "High", finding: "Multiple sources confirm his documentaries have reached hundreds of millions globally. 'Life on Earth' alone was watched by 500 million people worldwide." },
-    { claim: "Attenborough has maintained an active filming career into his late 90s", verdict: "Partially Supported", confidence: "Medium", finding: "His birth date is May 8, 1926, making him 99 at the time of this article. His long career is well-documented but the specific age in some claims contained a minor discrepancy." },
-    { claim: "Attenborough possesses a unique ability to connect with both animals and diverse human audiences", verdict: "Supported", confidence: "High", finding: "Multiple sources confirm his unique connection with both wildlife and audiences. His approach makes viewers feel a kinship to the animals." },
-    { claim: "The British public views Attenborough as a national hero deserving of widespread celebration", verdict: "Supported", confidence: "High", finding: "A YouGov survey shows 36% of the public named David Attenborough as a national treasure — the highest number by far." }
+  summary: "Sir David Attenborough, the legendary British wildlife broadcaster and climate campaigner, celebrates his 100th birthday on May 8, 2026. Born in 1926, he has spent decades bringing intimate nature documentaries to hundreds of millions of viewers worldwide, becoming a beloved British icon. The milestone is being marked with special BBC broadcasts, concerts, museum events, and widespread public celebration across the UK.",
+  sections: [
+    { title: "Context / Background", points: [
+        "Born in 1926 in suburban London, collected fossils as a child and studied zoology at Cambridge",
+        "Started BBC career as manager before moving on-camera at age 30 after someone else got ill",
+        "Has been making wildlife documentaries for over 70 years, witnessing major historical periods from Great Depression through WWII to present"
+    ]},
+    { title: "Key Findings", points: [
+        "Celebrated across Britain as a national hero with fans gathering in animal costumes at Trafalgar Square",
+        "Special events include BBC broadcasts, Royal Albert Hall concert, science museum exhibitions, and nature walks",
+        "Famous for iconic moments like cuddling with gorillas in Rwanda (1978) and wrestling a Burmese python on live TV (1956)",
+        "Colleagues describe him as an 'animal whisperer' who connects easily with everyone from scientists to field assistants"
+    ]},
+    { title: "Implications", points: [
+        "Demonstrates the lasting cultural impact of educational broadcasting and nature documentary filmmaking",
+        "Shows how one individual can shape public understanding and appreciation of wildlife across multiple generations",
+        "Scientists continue to honor his legacy by naming species after him, including a parasitic wasp for his 100th birthday"
+    ]}
   ],
-  fact_assessment: "Most core assertions about David Attenborough's career and public standing prove accurate. His documentaries have reached hundreds of millions of viewers globally, his unique ability to connect with wildlife and audiences is well-documented, and polling confirms the British public views him as a national hero. The article's factual foundation remains largely solid.",
-  context_assessment: "The article presents Attenborough's milestone birthday celebration and provides appropriate historical context. The biographical details and career achievements are well-covered. The contextual presentation is generally sound and captures the scope of his cultural impact effectively.",
-  factual_score_rationale: "Most claims about Attenborough's career impact and public standing are well-supported by multiple independent sources.",
-  context_score_rationale: "The article provides good biographical context about Attenborough's career span and achievements, meeting typical expectations for a celebratory profile piece.",
-  framing_issues: ["The article presents Attenborough's 100th birthday as a current event with appropriate celebration context"]
+  lean: "Center",
+  confidence: "High",
+  signals: [
+    "Celebratory but factual tone about widely respected figure",
+    "Focuses on biographical details and career achievements without political messaging"
+  ],
+  caveat: "This is a straightforward celebratory profile of a universally respected cultural figure with no detectable political bias."
 };
 const DEMO_URL   = "https://www.npr.org/2026/05/08/nx-s1-5802305/david-attenborough-celebrates-his-100th-birthday";
 const DEMO_TITLE = "David Attenborough celebrates his 100th birthday — NPR";
 
+const LEAN_POSITIONS = { 'Left': 8, 'Center-Left': 28, 'Center': 50, 'Center-Right': 72, 'Right': 92 };
+const LOADING_STEPS = [
+  'Reading and analyzing content\u2026',
+  'Identifying key themes\u2026',
+  'Extracting important points\u2026',
+  'Assessing political framing\u2026',
+  'Structuring your summary\u2026'
+];
+
+let _savedResult = null;
 let _savedMeta = null;
-let _savedClaims = [];
 let _loadingInterval = null;
 let _currentTab = null;
-let _claimsReceived = 0;
-let _totalClaims = 0;
 
 document.addEventListener('DOMContentLoaded', async function() {
-  var data = await chrome.storage.local.get(['tp_code']);
-  if (data.tp_code) {
-    document.getElementById('accessCode').value = data.tp_code;
-    showAuthStatus('\u2713 Prism Code configured', 'ok');
+  var data = await chrome.storage.local.get(['nd_code']);
+  if (data.nd_code) {
+    document.getElementById('accessCode').value = data.nd_code;
+    showAuthStatus('\u2713 Distiller Pack code configured', 'ok');
     collapseAuth();
-    checkRemaining(data.tp_code);
   }
   try {
     var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -54,10 +67,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('saveCodeBtn').addEventListener('click', saveCode);
   document.getElementById('testCodeBtn').addEventListener('click', testCode);
   document.getElementById('checkBtn').addEventListener('click', checkCurrentPage);
+  document.getElementById('checkCustomBtn').addEventListener('click', checkCustomText);
   var sampleBtn = document.getElementById('sampleBtn');
   if (sampleBtn) sampleBtn.addEventListener('click', showDemo);
   initTextToggle();
-  document.getElementById('checkCustomBtn').addEventListener('click', checkCustomText);
   document.getElementById('saveBtn').addEventListener('click', copyReport);
   document.getElementById('newCheckBtn').addEventListener('click', resetResults);
   document.getElementById('fullReportBtn').addEventListener('click', openFullReport);
@@ -96,11 +109,10 @@ function showAuthStatus(msg, type) {
 
 async function saveCode() {
   var code = document.getElementById('accessCode').value.trim();
-  if (!code) { showAuthStatus('Please enter a Prism Code', 'error'); return; }
-  await chrome.storage.local.set({ tp_code: code });
+  if (!code) { showAuthStatus('Please enter a code', 'error'); return; }
+  await chrome.storage.local.set({ nd_code: code });
   showAuthStatus('\u2713 Code saved!', 'ok');
   setTimeout(collapseAuth, 800);
-  checkRemaining(code);
 }
 
 async function testCode() {
@@ -108,61 +120,32 @@ async function testCode() {
   if (!code) { showAuthStatus('Enter a code first', 'error'); return; }
   showAuthStatus('Testing\u2026', '');
   try {
-    var r = await fetch(SERVER_URL + '/api/check-access', {
+    var r = await fetch(SERVER_URL + '/api/validate-code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_code: code, platform: 'ios' })
+      body: JSON.stringify({ code: code, platform: 'ios' })
     });
     var d = await r.json();
-    if (d.success) {
+    if (d.valid) {
       var rem = d.remaining != null ? d.remaining : null;
-      var remStr = rem === -1 ? 'Unlimited.' : (rem != null ? rem + ' checks left.' : '');
-      showAuthStatus('\u2713 Valid! ' + remStr, 'ok');
-      if (rem != null) showRemaining(rem);
+      var remStr = rem === -1 ? 'Unlimited uses.' : (rem != null ? rem + ' uses left.' : '');
+      showAuthStatus('\u2713 Valid code! ' + remStr, 'ok');
     } else {
-      showAuthStatus('\u2717 ' + (d.error || 'Code not recognized.'), 'error');
+      showAuthStatus('\u2717 ' + (d.message || d.error || 'Code not recognized.'), 'error');
     }
   } catch(e) {
     showAuthStatus('\u2717 Cannot connect to server', 'error');
   }
 }
 
-async function checkRemaining(code) {
-  try {
-    var r = await fetch(SERVER_URL + '/api/check-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_code: code, platform: 'ios' })
-    });
-    var d = await r.json();
-    if (d.remaining != null) showRemaining(d.remaining);
-  } catch(e) {}
-}
-
-function showRemaining(remaining) {
-  var banner = document.getElementById('remainingBanner');
-  if (remaining == null) { banner.style.display = 'none'; return; }
-  banner.style.display = 'block';
-  if (remaining <= 0) {
-    banner.style.cssText = 'display:block;padding:4px 8px;border-radius:4px;margin-bottom:6px;font-size:10px;text-align:center;background:#2a1010;border:1px solid #6a2020;color:#f08080;';
-    banner.textContent = '\u26a0 Checks used up. Get a Prism Pack at app.truthprism.app/checkout';
-  } else if (remaining <= 3) {
-    banner.style.cssText = 'display:block;padding:4px 8px;border-radius:4px;margin-bottom:6px;font-size:10px;text-align:center;background:#2a1f00;border:1px solid #4a3a00;color:#f0d060;';
-    banner.textContent = '\u26a0 ' + remaining + ' check' + (remaining !== 1 ? 's' : '') + ' remaining';
-  } else {
-    banner.style.cssText = 'display:block;padding:4px 8px;border-radius:4px;margin-bottom:6px;font-size:10px;text-align:center;background:#0f2a1a;border:1px solid #1a4a2a;color:#55dd99;';
-    banner.textContent = '\u2713 ' + remaining + ' checks remaining';
-  }
-}
-
 async function getCode() {
-  var data = await chrome.storage.local.get(['tp_code']);
-  if (!data.tp_code) {
-    showError('Please save your Prism Code first.');
+  var data = await chrome.storage.local.get(['nd_code']);
+  if (!data.nd_code) {
+    showError('Please save your Distiller Pack code first.');
     expandAuth();
     return null;
   }
-  return data.tp_code;
+  return data.nd_code;
 }
 
 async function checkCurrentPage() {
@@ -185,11 +168,12 @@ async function checkCurrentPage() {
           return '';
         }
         var title = getMeta(['og:title','twitter:title']) || document.title || '';
-        var siteName = getMeta(['og:site_name','application-name']) || window.location.hostname.replace('www.','');
+        var siteName = getMeta(['og:site_name','application-name']) || '';
         var pubDate = getMeta(['article:published_time','og:article:published_time','pubdate','date','DC.date']) || '';
+        if (!siteName) siteName = window.location.hostname.replace('www.','');
 
-        // STRATEGY 1: JSON-LD structured data (works on most major news sites — NYT, WaPo, WSJ, BBC,
-        // Atlantic, Bloomberg, Reuters, AP, Guardian, etc — even when paywall is up, since this is published for SEO).
+        // STRATEGY 1: JSON-LD structured data (works on most major news sites — NYT, WaPo, Bloomberg,
+        // Atlantic, Reuters, AP, Guardian, etc — even when paywall is up, since this is published for SEO).
         function findArticleInJsonLd() {
           var scripts = document.querySelectorAll('script[type="application/ld+json"]');
           for (var s = 0; s < scripts.length; s++) {
@@ -204,7 +188,8 @@ async function checkCurrentPage() {
           return '';
         }
         function walkForArticleBody(node) {
-          if (!node || typeof node === 'string') return '';
+          if (!node) return '';
+          if (typeof node === 'string') return '';
           if (Array.isArray(node)) {
             for (var i = 0; i < node.length; i++) {
               var r = walkForArticleBody(node[i]);
@@ -213,14 +198,24 @@ async function checkCurrentPage() {
             return '';
           }
           if (typeof node === 'object') {
+            // articleBody is the canonical schema.org field
             if (typeof node.articleBody === 'string' && node.articleBody.length > 500) {
               var body = node.articleBody;
               if (typeof node.headline === 'string') body = node.headline + '\n\n' + body;
               else if (typeof node.name === 'string') body = node.name + '\n\n' + body;
               return body;
             }
-            if (node['@graph']) { var r = walkForArticleBody(node['@graph']); if (r) return r; }
-            if (node.mainEntity) { var r = walkForArticleBody(node.mainEntity); if (r) return r; }
+            // Nested @graph arrays (NYT and others use this)
+            if (node['@graph']) {
+              var r = walkForArticleBody(node['@graph']);
+              if (r) return r;
+            }
+            // Sometimes wrapped in mainEntity / mainEntityOfPage
+            if (node.mainEntity) {
+              var r = walkForArticleBody(node.mainEntity);
+              if (r) return r;
+            }
+            // Recurse into all values
             for (var k in node) {
               if (k === '@graph' || k === 'mainEntity') continue;
               var r = walkForArticleBody(node[k]);
@@ -230,25 +225,28 @@ async function checkCurrentPage() {
           return '';
         }
 
-        // STRATEGY 2: Site-specific selectors
+        // STRATEGY 2: Site-specific selectors that have proven reliable
         function findArticleBySiteSelectors() {
           var siteSelectors = [
+            // NYT (current and legacy)
             '[data-testid="StandardArticleBody"]', 'section[name="articleBody"]',
+            // WSJ
             'section.article-content', 'div.article-wrap',
+            // WaPo
             '[data-qa="article-body"]', '.article-body',
+            // Bloomberg
             '.body-content', '.body-copy',
+            // Atlantic
             '[data-event-module="article body"]', 'section.l-article__body',
+            // Generic high-priority
             'article[itemprop="articleBody"]', '[itemprop="articleBody"]',
-            'article', '[role="article"]',
-            '[class*="article-body"]', '[class*="story-body"]',
-            '[class*="post-content"]', '[class*="entry-content"]',
-            '[class*="article-content"]', '[class*="story-content"]',
-            'main', '#main-content', '#content'
+            'article', '[role="article"]'
           ];
           for (var i = 0; i < siteSelectors.length; i++) {
             var els = document.querySelectorAll(siteSelectors[i]);
             for (var j = 0; j < els.length; j++) {
               var el = els[j];
+              // Clone so we can safely strip junk
               var clone = el.cloneNode(true);
               clone.querySelectorAll('aside,nav,footer,header,figure figcaption,.ad,.ads,[class*="newsletter"],[class*="related"],[class*="recommend"],[aria-hidden="true"],[role="complementary"]').forEach(function(n){n.remove();});
               var t = (clone.innerText || '').trim();
@@ -258,7 +256,8 @@ async function checkCurrentPage() {
           return '';
         }
 
-        // STRATEGY 3: Densest <p> cluster
+        // STRATEGY 3: Densest <p> cluster (Reader-Mode-style heuristic).
+        // Find the element whose direct <p> children have the most total text.
         function findArticleByDensestParas() {
           var allParas = document.querySelectorAll('p');
           if (allParas.length < 3) return '';
@@ -287,37 +286,46 @@ async function checkCurrentPage() {
           return '';
         }
 
-        // STRATEGY 4: Body fallback
+        // STRATEGY 4: Body fallback with junk stripped
         function findArticleByBodyFallback() {
           var clone = document.body.cloneNode(true);
           clone.querySelectorAll('script,style,nav,footer,header,aside,form,iframe,[role="navigation"],[role="banner"],[role="complementary"],[aria-hidden="true"]').forEach(function(e){e.remove();});
           return (clone.innerText || '').trim();
         }
 
+        // Try strategies in order, take the longest result that exceeds threshold.
         var attempts = [
-          findArticleInJsonLd(),
-          findArticleBySiteSelectors(),
-          findArticleByDensestParas()
+          { name: 'json-ld', text: findArticleInJsonLd() },
+          { name: 'site-selectors', text: findArticleBySiteSelectors() },
+          { name: 'densest-paras', text: findArticleByDensestParas() }
         ];
         var best = '';
+        var bestStrategy = '';
         for (var i = 0; i < attempts.length; i++) {
-          if (attempts[i] && attempts[i].length > best.length) best = attempts[i];
+          if (attempts[i].text && attempts[i].text.length > best.length) {
+            best = attempts[i].text;
+            bestStrategy = attempts[i].name;
+          }
         }
+        // If nothing decent yet, fall back to body
         if (best.length < 500) {
           var fb = findArticleByBodyFallback();
-          if (fb.length > best.length) best = fb;
+          if (fb.length > best.length) { best = fb; bestStrategy = 'body-fallback'; }
         }
-        var cleaned = best.replace(/\s+/g, ' ').trim();
+
+        var cleaned = best.replace(/\s+/g,' ').trim();
         return {
           text: 'Page Title: ' + document.title + '\nURL: ' + window.location.href + '\n\n' + cleaned,
-          meta: { title: title, siteName: siteName, pubDate: pubDate, url: window.location.href }
+          meta: { title: title, siteName: siteName, pubDate: pubDate, url: window.location.href },
+          strategy: bestStrategy,
+          textLength: cleaned.length
         };
       }
     });
     var result = results[0] && results[0].result;
     if (!result) throw new Error('Could not extract text from page.');
     _savedMeta = result.meta;
-    await runCheck(result.text, code);
+    await runDistill(result.text, code);
   } catch(e) {
     showError(e.message || 'Could not read page content.');
     showLoading(false);
@@ -328,35 +336,49 @@ async function checkCustomText() {
   var code = await getCode();
   if (!code) return;
   var text = document.getElementById('customText').value.trim();
-  if (!text) { showError('Please paste some text first.'); return; }
-  _savedMeta = null;
+  if (!text) { showError('Please paste article text first.'); return; }
   showLoading(true);
   hideError();
   hideResults();
-  await runCheck(text, code);
+  _savedMeta = null;
+  await runDistill(text, code);
 }
 
-function setStep(text) {
-  var el = document.getElementById('loadingStep');
-  if (el) el.textContent = text;
+function extractSummaryFromBuffer(buf) {
+  var sumKey = '"summary": "';
+  var sumStart = buf.indexOf(sumKey);
+  if (sumStart === -1) return null;
+  var textStart = sumStart + sumKey.length;
+  var textEnd = textStart;
+  while (textEnd < buf.length) {
+    var ch = buf[textEnd];
+    if (ch === '\\') { textEnd += 2; continue; }
+    if (ch === '"') break;
+    textEnd++;
+  }
+  var raw = buf.substring(textStart, textEnd)
+    .replace(/\\n/g, '\n').replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  return raw.length > 10 ? raw : null;
 }
 
-async function runCheck(text, code) {
+async function runDistill(text, code) {
   _savedResult = null;
-  _savedClaims = [];
-  _claimsReceived = 0;
-  _totalClaims = 0;
-  setStep('Analyzing content\u2026');
+  var chunkBuffer = '';
 
   try {
-    var resp = await fetch(SERVER_URL + '/api/check-stream', {
+    var resp = await fetch(SERVER_URL + '/api/distill', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ claim_text: text.substring(0, 10000), access_code: code, platform: 'ios' })
+      body: JSON.stringify({ text: text.substring(0, 15000), code: code, style: 'executive', platform: 'ios' })
     });
+
     if (!resp.ok) {
       var ed = await resp.json().catch(function(){ return {}; });
-      throw new Error(ed.error || 'Analysis failed \u2014 please try again.');
+      if (ed.error === 'free_exhausted') {
+        throw new Error('Free distillations used up. Get a Distiller Pack at pklmedialab.com');
+      }
+      throw new Error(ed.error || ed.message || 'Analysis failed \u2014 please try again.');
     }
 
     var reader = resp.body.getReader();
@@ -369,34 +391,31 @@ async function runCheck(text, code) {
         buf += decoder.decode(chunk.value, { stream: true });
         var lines = buf.split('\n');
         buf = lines.pop();
+
         lines.forEach(function(line) {
           if (!line.startsWith('data: ')) return;
-          try {
-            var msg = JSON.parse(line.slice(6));
-            if (msg.type === 'error') {
-              showError(msg.message || 'Analysis failed.'); showLoading(false);
-            } else if (msg.type === 'summary') {
-              setStep('Step 1: Summarizing article \u2713');
-              document.getElementById('summaryHeadline').textContent = msg.headline || '';
-              document.getElementById('summaryText').textContent = msg.executive_summary || '';
+          var payload = line.slice(6).trim();
+          if (!payload) return;
+          var msg;
+          try { msg = JSON.parse(payload); } catch(e) { return; }
+
+          if (msg.error) { showError(msg.error); showLoading(false); return; }
+
+          if (msg.chunk) {
+            chunkBuffer += msg.chunk;
+            var partial = extractSummaryFromBuffer(chunkBuffer);
+            if (partial) {
+              document.getElementById('summaryText').textContent = partial;
               document.getElementById('summaryCard').style.display = 'block';
               document.getElementById('results').style.display = 'block';
-            } else if (msg.type === 'claim_count') {
-              _totalClaims = msg.total;
-              setStep('Step 2: Claim 0/' + _totalClaims + ' verified');
-            } else if (msg.type === 'claim') {
-              _claimsReceived++;
-              _savedClaims.push(msg.claim || msg);
-              setStep('Step 2: Claim ' + _claimsReceived + '/' + _totalClaims + ' verified');
-            } else if (msg.type === 'assessment') {
-              setStep('Step 3: Evaluating context\u2026');
-              displayResults(msg);
-              if (msg.remaining != null) showRemaining(msg.remaining);
-            } else if (msg.type === 'done') {
-              setStep('Finished');
-              showLoading(false);
             }
-          } catch(e) {}
+          }
+
+          if (msg.done && msg.result) {
+            _savedResult = msg.result;
+            renderResults(msg.result);
+            showLoading(false);
+          }
         });
         return read();
       }).catch(function(e) {
@@ -411,64 +430,32 @@ async function runCheck(text, code) {
   }
 }
 
-function getScoreColor(s) {
-  if (!s) return '#6688aa';
-  return s >= 8 ? '#22c55e' : s >= 6 ? '#f59e0b' : '#ef4444';
-}
-function getScoreDesc(s) {
-  if (!s) return '';
-  if (s >= 9) return 'Highly Accurate'; if (s >= 7) return 'Generally Credible';
-  if (s >= 5) return 'Mixed'; if (s >= 3) return 'Low Credibility'; return 'Very Low';
-}
-
 function showDemo() {
-  displayResults(DEMO_RESULT);
+  var r = DEMO_RESULT;
+  _savedResult = r;
+  _savedMeta = { url: DEMO_URL, title: DEMO_TITLE };
+  renderResults(r);
 }
 
-function displayResults(data) {
-  _savedResult = data;
-  var factual = data.factual_score || data.score || 0;
-  var context = data.context_score || 0;
-  document.getElementById('factualScore').textContent = factual + '/10';
-  document.getElementById('factualScore').style.color = getScoreColor(factual);
-  document.getElementById('factualDesc').textContent = getScoreDesc(factual);
-  document.getElementById('contextScore').textContent = context ? context + '/10' : 'N/A';
-  document.getElementById('contextScore').style.color = getScoreColor(context);
-  document.getElementById('contextDesc').textContent = getScoreDesc(context);
-  if (data.headline || data.executive_summary) {
-    document.getElementById('summaryHeadline').textContent = data.headline || '';
-    document.getElementById('summaryText').textContent = data.executive_summary || '';
-    document.getElementById('summaryCard').style.display = 'block';
-  }
-  if (data.fact_assessment) {
-    document.getElementById('factAssessText').textContent = data.fact_assessment;
-    document.getElementById('factAssessCard').style.display = 'block';
-  }
-  if (data.context_assessment) {
-    document.getElementById('contextAssessText').textContent = data.context_assessment;
-    document.getElementById('contextCard').style.display = 'block';
-  }
-  if (data.factual_score_rationale || data.context_score_rationale) {
-    document.getElementById('factualRationale').textContent = data.factual_score_rationale ? 'Factual: ' + data.factual_score_rationale : '';
-    document.getElementById('contextRationale').textContent = data.context_score_rationale ? 'Context: ' + data.context_score_rationale : '';
-    document.getElementById('scoreExplainCard').style.display = 'block';
-  }
-  // Political lean gauge
-  if (data.lean) {
-    var pct = LEAN_POSITIONS[data.lean] !== undefined ? LEAN_POSITIONS[data.lean] : 50;
+function renderResults(r) {
+  document.getElementById('summaryText').textContent = r.summary || '';
+  document.getElementById('summaryCard').style.display = 'block';
+
+  if (r.lean) {
+    var pct = LEAN_POSITIONS[r.lean] !== undefined ? LEAN_POSITIONS[r.lean] : 50;
     setTimeout(function() { document.getElementById('leanMarker').style.left = pct + '%'; }, 100);
-    document.getElementById('leanVerdict').textContent = data.lean;
-    var conf = (data.confidence || 'low').toLowerCase();
+    document.getElementById('leanVerdict').textContent = r.lean;
+    var conf = (r.confidence || 'low').toLowerCase();
     var confEl = document.getElementById('confPill');
-    confEl.textContent = (data.confidence || '') + ' confidence';
+    confEl.textContent = (r.confidence || '') + ' confidence';
     confEl.className = 'confidence-pill conf-' + conf;
     var signalsEl = document.getElementById('leanSignals');
     signalsEl.innerHTML = '';
-    (data.signals || []).forEach(function(s) {
+    (r.signals || []).forEach(function(s) {
       var li = document.createElement('li'); li.textContent = s; signalsEl.appendChild(li);
     });
     var caveatEl = document.getElementById('leanCaveat');
-    if (data.caveat) { caveatEl.textContent = data.caveat; caveatEl.style.display = 'block'; }
+    if (r.caveat) { caveatEl.textContent = r.caveat; caveatEl.style.display = 'block'; }
     else { caveatEl.style.display = 'none'; }
     document.getElementById('biasCard').style.display = 'block';
   } else {
@@ -477,142 +464,178 @@ function displayResults(data) {
   document.getElementById('results').style.display = 'block';
 }
 
-// Full Report — identical pattern to working ND extension
-// Fetches jsPDF from local bundle, inlines it, opens blob via chrome.tabs.create
+// Full Report — opens report.html (a real extension page so scripts run on iOS Safari)
 function openFullReport() {
-  var d = _savedResult;
-  if (!d) { showError('No results to report. Please run a check first.'); return; }
-  _buildFullReport(d);
+  _openFullReport();
 }
 
-function _buildFullReport(d) {
+function _openFullReport() {
+  var d = _savedResult;
+  if (!d) return;
   var timestamp = new Date().toLocaleString();
   var m = _savedMeta || {};
-  var claims = _savedClaims || [];
 
-  function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function esc(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
 
   var pubDateDisplay = '';
   if (m.pubDate) {
-    try { pubDateDisplay = new Date(m.pubDate).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}); }
-    catch(e) { pubDateDisplay = m.pubDate; }
+    try {
+      pubDateDisplay = new Date(m.pubDate).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    } catch(e) { pubDateDisplay = m.pubDate; }
   }
 
-  var factual = d.factual_score || d.score || 0;
-  var context = d.context_score || 0;
-  function sc(s) { return s >= 8 ? '#22c55e' : s >= 6 ? '#f59e0b' : '#ef4444'; }
-
-  // Article meta
+  // Article metadata block
   var metaHtml = '';
-  if (m.title || m.siteName) {
+  if (m.title || m.siteName || pubDateDisplay) {
     metaHtml = '<div class="article-meta">';
     if (m.title) metaHtml += '<div class="article-title">' + esc(m.title) + '</div>';
-    var bl = [];
-    if (m.siteName) bl.push('<strong>' + esc(m.siteName) + '</strong>');
-    if (pubDateDisplay) bl.push(esc(pubDateDisplay));
-    if (bl.length) metaHtml += '<div class="article-byline">' + bl.join(' &bull; ') + '</div>';
+    var byline = [];
+    if (m.siteName) byline.push('<strong>' + esc(m.siteName) + '</strong>');
+    if (pubDateDisplay) byline.push(esc(pubDateDisplay));
+    if (byline.length) metaHtml += '<div class="article-byline">' + byline.join(' &bull; ') + '</div>';
     if (m.url) metaHtml += '<div class="article-url"><a href="' + esc(m.url) + '">' + esc(m.url) + '</a></div>';
     metaHtml += '</div>';
   }
 
-  // Claims
-  var claimsHtml = '';
-  if (claims.length) {
-    claimsHtml = '<h2>Claims Checked</h2>';
-    claims.forEach(function(c) {
-      var claim = (typeof c === 'object' && c.claim) ? c.claim : String(c);
-      var verdict = (typeof c === 'object') ? (c.verdict || '') : '';
-      var finding = (typeof c === 'object') ? (c.finding || '') : '';
-      var sources = (typeof c === 'object') ? (c.source_summary || '') : '';
-      var vc = verdict === 'Supported' ? '#22c55e' : verdict === 'False' ? '#ef4444' : verdict === 'Partially Supported' ? '#f59e0b' : '#94a3b8';
-      claimsHtml += '<div class="claim-card"><div class="claim-header"><div class="claim-text">' + esc(claim) + '</div>';
-      if (verdict) claimsHtml += '<div class="claim-verdict" style="color:' + vc + ';">' + esc(verdict) + '</div>';
-      claimsHtml += '</div>';
-      if (finding) claimsHtml += '<div class="claim-finding">' + esc(finding) + '</div>';
-      if (sources) claimsHtml += '<div class="claim-sources">Sources: ' + esc(sources) + '</div>';
-      claimsHtml += '</div>';
-    });
+  // Sections
+  var sectionsHtml = '';
+  (d.sections || []).forEach(function(sec) {
+    if (!sec.points || !sec.points.length) return;
+    sectionsHtml += '<h2>' + esc(sec.title) + '</h2><ul>';
+    sec.points.forEach(function(pt) { sectionsHtml += '<li>' + esc(pt) + '</li>'; });
+    sectionsHtml += '</ul>';
+  });
+
+  // Lean section with inline SVG gradient meter — no external deps
+  var leanHtml = '';
+  if (d.lean) {
+    var LPOS = {'Left':8,'Center-Left':28,'Center':50,'Center-Right':72,'Right':92};
+    var pct = LPOS[d.lean] !== undefined ? LPOS[d.lean] : 50;
+    var conf = (d.confidence || 'low').toLowerCase();
+    var confStyles = {
+      low:    'background:#fff3cd;color:#cc8800;',
+      medium: 'background:#dbeafe;color:#1d6ed8;',
+      high:   'background:#d1fae5;color:#0D6E6E;'
+    };
+    var confStyle = confStyles[conf] || confStyles.low;
+
+    leanHtml = '<h2>Political Lean Assessment</h2>' +
+      '<div class="lean-box">' +
+        '<div class="lean-header">' +
+          '<span class="lean-label-sm">Political Lean</span>' +
+          '<span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;' + confStyle + '">' + esc(d.confidence||'') + ' confidence</span>' +
+        '</div>' +
+        // Gradient bar using pure CSS — no JS, no external deps
+        '<div style="margin:10px 0 4px;">' +
+          '<div style="display:flex;justify-content:space-between;font-size:10px;color:#888;margin-bottom:5px;">' +
+            '<span>Left</span><span>Center&#8209;Left</span><span>Center</span><span>Center&#8209;Right</span><span>Right</span>' +
+          '</div>' +
+          '<div style="position:relative;height:20px;border-radius:10px;background:linear-gradient(to right,#2040a0,#4060c0,#888,#c06030,#a02020);">' +
+            '<div style="position:absolute;top:50%;left:' + pct + '%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;background:white;border:3px solid #222;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:28px;font-weight:800;color:#0D6E6E;text-align:center;margin:12px 0 10px;">' + esc(d.lean) + '</div>';
+    if (d.signals && d.signals.length) {
+      leanHtml += '<ul class="signals">';
+      d.signals.forEach(function(s) { leanHtml += '<li>' + esc(s) + '</li>'; });
+      leanHtml += '</ul>';
+    }
+    if (d.caveat) leanHtml += '<p class="caveat">' + esc(d.caveat) + '</p>';
+    leanHtml += '</div>';
   }
 
-  // Plain text
-  var plain = 'TRUTHPRISM REPORT\n' + '='.repeat(50) + '\nGenerated: ' + timestamp + '\n';
-  if (m.title) plain += '\nARTICLE:   ' + m.title;
-  if (m.siteName) plain += '\nSOURCE:    ' + m.siteName;
-  if (pubDateDisplay) plain += '\nPUBLISHED: ' + pubDateDisplay;
-  if (m.url) plain += '\nURL:       ' + m.url;
-  plain += '\n\nFACTUAL SCORE: ' + factual + '/10\nCONTEXT SCORE: ' + (context || 'N/A') + (context ? '/10' : '') + '\n';
-  if (d.executive_summary) plain += '\nEXECUTIVE SUMMARY\n' + '-'.repeat(30) + '\n' + d.executive_summary + '\n';
-  claims.forEach(function(c) {
-    var claim = (typeof c === 'object' && c.claim) ? c.claim : String(c);
-    plain += '\nCLAIM: ' + claim + (c.verdict ? '\nVERDICT: ' + c.verdict : '') + '\n' + (c.finding || '') + '\n';
+  // Plain text for email body
+  var plainText = 'NEWS-DISTILLER REPORT\n' + '='.repeat(50) + '\nGenerated: ' + timestamp + '\n';
+  if (m.title)       plainText += '\nARTICLE:   ' + m.title;
+  if (m.siteName)    plainText += '\nSOURCE:    ' + m.siteName;
+  if (pubDateDisplay) plainText += '\nPUBLISHED: ' + pubDateDisplay;
+  if (m.url)         plainText += '\nURL:       ' + m.url;
+  plainText += '\n\n' + '='.repeat(50) + '\nEXECUTIVE SUMMARY\n' + '='.repeat(50) + '\n\n' + (d.summary || '') + '\n';
+  (d.sections || []).forEach(function(sec) {
+    if (!sec.points || !sec.points.length) return;
+    plainText += '\n' + sec.title.toUpperCase() + '\n' + '-'.repeat(30) + '\n';
+    sec.points.forEach(function(pt) { plainText += '\u2022 ' + pt + '\n'; });
   });
-  if (d.lean) plain += '\nPOLITICAL LEAN\n' + '-'.repeat(30) + '\n' + d.lean + (d.confidence ? ' (' + d.confidence + ' confidence)' : '') + '\n' + (d.signals||[]).join('\n') + '\n';
-  if (d.fact_assessment) plain += '\nFACT CHECK ASSESSMENT\n' + '-'.repeat(30) + '\n' + d.fact_assessment + '\n';
-  if (d.context_assessment) plain += '\nCONTEXT & FRAMING\n' + '-'.repeat(30) + '\n' + d.context_assessment + '\n';
-  plain += '\n' + '='.repeat(50) + '\nGenerated by TruthPrism \u2014 app.truthprism.app\nPowered by Claude AI & Brave Search';
+  if (d.lean) {
+    plainText += '\n' + '='.repeat(50) + '\nPOLITICAL LEAN ASSESSMENT\n' + '='.repeat(50) + '\n';
+    plainText += d.lean + (d.confidence ? ' (' + d.confidence + ' confidence)' : '') + '\n\n';
+    (d.signals || []).forEach(function(s) { plainText += '  \u203a ' + s + '\n'; });
+    if (d.caveat) plainText += '\n' + d.caveat + '\n';
+  }
+  plainText += '\n' + '='.repeat(50) + '\nGenerated by News-Distiller \u2014 app.news-distiller.com\nPowered by Claude AI';
 
+
+  // Build report content as separate styleCss + bodyHtml strings,
+  // store them, and open report.html (a real extension page where scripts run on iOS).
   var styleParts = [
     '*{box-sizing:border-box;margin:0;padding:0;}',
-    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:820px;margin:0 auto;padding:32px 28px;background:#f4f6f9;color:#1a2a3a;}',
-    'h1{font-size:28px;color:#667eea;margin-bottom:2px;font-weight:800;}',
-    '.ts{font-size:14px;color:#888;margin-bottom:20px;}',
-    'h2{font-size:15px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid #764ba2;padding-bottom:5px;margin:24px 0 10px;}',
-    '.article-meta{background:white;border-left:5px solid #667eea;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06);}',
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;',
+    '  max-width:820px;margin:0 auto;padding:32px 28px;background:#f4f6f9;color:#1a2a3a;}',
+    'h1{font-size:28px;color:#0D6E6E;margin-bottom:2px;font-weight:800;}',
+    '.report-ts{font-size:14px;color:#888;margin-bottom:20px;}',
+    'h2{font-size:15px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:.6px;',
+    '  border-bottom:2px solid #11998E;padding-bottom:5px;margin:24px 0 10px;}',
+    '.article-meta{background:white;border-left:5px solid #0D6E6E;border-radius:0 8px 8px 0;',
+    '  padding:14px 18px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06);}',
     '.article-title{font-size:20px;font-weight:700;color:#1a2a3a;margin-bottom:5px;line-height:1.4;}',
     '.article-byline{font-size:14px;color:#555;margin-bottom:4px;}',
-    '.article-url{font-size:13px;word-break:break-all;}.article-url a{color:#667eea;}',
-    '.scores{display:flex;gap:14px;margin-bottom:16px;}',
-    '.score-box{flex:1;background:white;border:1px solid #dde;border-radius:8px;padding:14px;text-align:center;}',
-    '.score-lbl{font-size:11px;color:#888;margin-bottom:6px;font-weight:600;text-transform:uppercase;}',
-    '.score-num{font-size:32px;font-weight:800;line-height:1;}',
-    '.card{background:white;border-radius:8px;padding:14px 18px;margin-bottom:10px;font-size:15px;line-height:1.75;color:#333;box-shadow:0 1px 4px rgba(0,0,0,.06);}',
-    '.card-hl{font-size:14px;font-weight:700;color:#1a2a3a;margin-bottom:8px;}',
-    '.claim-card{background:white;border:1px solid #dde;border-radius:8px;padding:14px;margin-bottom:8px;}',
-    '.claim-header{display:flex;justify-content:space-between;margin-bottom:6px;gap:10px;}',
-    '.claim-text{font-size:15px;font-weight:600;color:#1a2a3a;flex:1;}',
-    '.claim-verdict{font-size:14px;font-weight:700;white-space:nowrap;}',
-    '.claim-finding{font-size:14px;color:#444;line-height:1.6;}',
-    '.claim-sources{font-size:11px;color:#888;margin-top:4px;font-style:italic;}',
-    '.pdf-hint{font-size:14px;color:#1a2a3a;background:linear-gradient(135deg,#667eea,#764ba2);background:#eef2ff;border:2px solid #667eea;border-radius:10px;padding:16px 18px;margin:24px 0 8px;line-height:1.6;display:flex;gap:14px;align-items:flex-start;box-shadow:0 2px 8px rgba(102,126,234,0.15);}',
-    '.pdf-hint .share-icon{flex-shrink:0;width:28px;height:36px;color:#667eea;}',
+    '.article-url{font-size:13px;word-break:break-all;} .article-url a{color:#0D6E6E;}',
+    '.summary{background:white;border-radius:8px;padding:16px 18px;',
+    '  font-size:14px;line-height:1.8;color:#2a3a4a;box-shadow:0 1px 4px rgba(0,0,0,.06);}',
+    'ul{margin:0 0 4px 0;padding-left:18px;}',
+    'li{font-size:15px;color:#2a3a4a;line-height:1.75;margin-bottom:3px;padding-left:4px;}',
+    '.lean-box{background:white;border-radius:8px;padding:18px;',
+    '  box-shadow:0 1px 4px rgba(0,0,0,.06);}',
+    '.lean-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}',
+    '.lean-label-sm{font-size:11px;font-weight:700;color:#0D6E6E;text-transform:uppercase;letter-spacing:.5px;}',
+    '.signals{list-style:none;padding:0;margin:4px 0 10px;}',
+    '.signals li{font-size:14px;color:#445566;padding:3px 0 3px 14px;position:relative;line-height:1.5;}',
+    '.signals li::before{content:"\u203a";position:absolute;left:0;color:#0D6E6E;font-weight:700;}',
+    '.caveat{font-size:14px;color:#cc8800;font-style:italic;margin-top:10px;',
+    '  padding-top:10px;border-top:1px solid #eee;line-height:1.5;}',
+    '.pdf-hint{font-size:14px;color:#1a2a3a;background:#eef2ff;border:2px solid #0D6E6E;border-radius:10px;padding:16px 18px;margin:24px 0 8px;line-height:1.6;display:flex;gap:14px;align-items:flex-start;box-shadow:0 2px 8px rgba(13,110,110,0.15);}',
+    '.pdf-hint .share-icon{flex-shrink:0;width:28px;height:36px;color:#0D6E6E;}',
     '.pdf-hint-text{flex:1;}',
-    '.pdf-hint-title{font-weight:800;color:#5a3d9e;margin-bottom:4px;font-size:15px;}',
-    '.pdf-hint kbd{display:inline-block;background:white;border:1px solid #c0c8e8;border-radius:5px;padding:1px 7px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;font-weight:700;color:#5a3d9e;box-shadow:0 1px 0 rgba(0,0,0,0.05);}',
+    '.pdf-hint-title{font-weight:800;color:#0D6E6E;margin-bottom:4px;font-size:15px;}',
+    '.pdf-hint kbd{display:inline-block;background:white;border:1px solid #b8d8d8;border-radius:5px;padding:1px 7px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;font-weight:700;color:#0D6E6E;box-shadow:0 1px 0 rgba(0,0,0,0.05);}',
+    '.btn{padding:12px 24px;border:none;border-radius:8px;font-size:15px;font-weight:700;',
+    '  cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;',
+    '  transition:opacity .15s;}',
     '.footer{font-size:11px;color:#aaa;margin-top:28px;padding-top:14px;border-top:1px solid #dde;text-align:center;}',
-    '@media print{.pdf-hint{display:none!important;}.tp-aa-btn{display:none!important;}body{background:white;}}',
+    // Print styles — hide buttons, white background, show full content
+    '@media print{',
+    '  body{background:white;padding:20px;}',
+    '  .pdf-hint{display:none!important;}',
+    '  .nd-aa-btn{display:none!important;}',
+    '  .article-meta,.summary,.lean-box{box-shadow:none;border:1px solid #ddd;}',
+    '}',
     // Aa text-size toggle button
-    '.tp-aa-btn{position:fixed;top:14px;right:14px;z-index:9999;background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:6px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.2);}',
-    '.tp-aa-btn:hover{background:rgba(0,0,0,0.75);}',
-    '.tp-aa-btn.active{background:#667eea;border-color:rgba(255,255,255,0.4);}',
+    '.nd-aa-btn{position:fixed;top:14px;right:14px;z-index:9999;background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:6px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.2);}',
+    '.nd-aa-btn:hover{background:rgba(0,0,0,0.75);}',
+    '.nd-aa-btn.active{background:#0D6E6E;border-color:rgba(255,255,255,0.4);}',
     // Large-text mode for report page
     'body.large-text .article-title{font-size:24px;}',
     'body.large-text .article-byline,body.large-text .article-url{font-size:16px;}',
+    'body.large-text .summary{font-size:17px;line-height:1.85;}',
+    'body.large-text li{font-size:18px;line-height:1.85;}',
     'body.large-text h2{font-size:17px;}',
-    'body.large-text .score-lbl{font-size:13px;}',
-    'body.large-text .score-num{font-size:38px;}',
-    'body.large-text .card{font-size:17px;line-height:1.85;}',
-    'body.large-text .card-hl{font-size:16px;}',
-    'body.large-text .claim-text{font-size:17px;}',
-    'body.large-text .claim-verdict{font-size:16px;}',
-    'body.large-text .claim-finding{font-size:16px;line-height:1.7;}',
-    'body.large-text .claim-sources{font-size:13px;}',
+    'body.large-text .lean-label-sm{font-size:13px;}',
+    'body.large-text .lean-verdict{font-size:20px;}',
+    'body.large-text .signals li{font-size:17px;}',
+    'body.large-text .caveat{font-size:16px;}',
     'body.large-text .pdf-hint,body.large-text .pdf-hint kbd{font-size:16px;}',
     'body.large-text .pdf-hint-title{font-size:17px;}'
   ];
   var bodyParts = [
-    '<h1>TruthPrism Report</h1>',
-    '<div class="ts">Generated: ' + timestamp + '</div>',
+    '<h1>News-Distiller Report</h1>',
+    '<div class="report-ts">Generated: ' + timestamp + '</div>',
     metaHtml,
-    '<div class="scores">',
-    '<div class="score-box"><div class="score-lbl" style="color:#60a5fa;">Factual Score</div><div class="score-num" style="color:' + sc(factual) + '">' + factual + '/10</div></div>',
-    '<div class="score-box"><div class="score-lbl" style="color:#a78bfa;">Context Score</div><div class="score-num" style="color:' + sc(context) + '">' + (context ? context + '/10' : 'N/A') + '</div></div>',
-    '</div>',
-    ((d.executive_summary || d.summary) ? '<h2>Executive Summary</h2><div class="card">' + (d.headline ? '<div class="card-hl">' + esc(d.headline) + '</div>' : '') + esc(d.executive_summary || d.summary) + '</div>' : ''),
-    claimsHtml,
-    (d.fact_assessment ? '<h2>Fact Check Assessment</h2><div class="card">' + esc(d.fact_assessment) + '</div>' : ''),
-    (d.context_assessment ? '<h2>Context &amp; Framing</h2><div class="card">' + esc(d.context_assessment) + '</div>' : ''),
-    (d.lean ? '<h2>Political Lean Assessment</h2><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><span style="font-size:22px;font-weight:800;color:#e0e8f0;">' + esc(d.lean) + '</span>' + (d.confidence ? '<span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:#0a2030;color:#4da6ff;">' + esc(d.confidence) + ' confidence</span>' : '') + '</div><div style="position:relative;height:16px;border-radius:8px;background:linear-gradient(to right,#2040a0,#3060c0,#888,#c06030,#a02020);margin-bottom:12px;"><div style="position:absolute;top:50%;left:' + ({'Left':8,'Center-Left':28,'Center':50,'Center-Right':72,'Right':92}[d.lean]||50) + '%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:white;border:2px solid #333;"></div></div><div style="display:flex;justify-content:space-between;font-size:9px;color:#888;margin-bottom:10px;"><span>Left</span><span>Center-Left</span><span>Center</span><span>Center-Right</span><span>Right</span></div>' + (d.signals&&d.signals.length ? '<ul style="list-style:none;margin-bottom:8px;">' + d.signals.map(function(s){return '<li style="font-size:11px;color:#a0b4c8;padding:3px 0;">› '+esc(s)+'</li>';}).join('') + '</ul>' : '') + (d.caveat ? '<div style="font-size:11px;color:#f0c040;font-style:italic;padding-top:8px;border-top:1px solid #ddd;">' + esc(d.caveat) + '</div>' : '') + '</div>' : ''),
-    ((d.factual_score_rationale||d.context_score_rationale) ? '<h2>Score Explanation</h2><div class="card">' + (d.factual_score_rationale ? '<div style="margin-bottom:5px;">Factual: ' + esc(d.factual_score_rationale) + '</div>' : '') + (d.context_score_rationale ? '<div>Context: ' + esc(d.context_score_rationale) + '</div>' : '') + '</div>' : ''),
+    '<h2>Executive Summary</h2>',
+    '<div class="summary">' + esc(d.summary || '') + '</div>',
+    sectionsHtml,
+    leanHtml,
     '<div class="pdf-hint">',
     '<svg class="share-icon" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
     '<path d="M12 1.5 L12 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
@@ -624,16 +647,16 @@ function _buildFullReport(d) {
     'Tap Safari\u2019s share icon \u2192 tap <kbd>Options</kbd> at the top \u2192 select <kbd>PDF</kbd> \u2192 then Mail, Message, AirDrop, or save it.',
     '</div>',
     '</div>',
-    '<div class="footer">Generated by TruthPrism &mdash; app.truthprism.app &mdash; Powered by Claude AI &amp; Brave Search</div>'
+    '<div class="footer">Generated by News-Distiller &mdash; app.news-distiller.com &mdash; Powered by Claude AI</div>'
   ];
 
   var styleCss = styleParts.join('');
   var bodyHtml = bodyParts.join('');
 
   chrome.storage.local.set({
-    tp_report_style: styleCss,
-    tp_report_body: bodyHtml,
-    tp_report_ts: Date.now()
+    nd_report_style: styleCss,
+    nd_report_body: bodyHtml,
+    nd_report_ts: Date.now()
   }, function() {
     chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
   });
@@ -643,14 +666,16 @@ async function copyReport() {
   var d = _savedResult;
   if (!d) return;
   var m = _savedMeta || {};
-  var factual = d.factual_score || d.score || 0;
-  var text = 'TRUTHPRISM ANALYSIS\n' + '='.repeat(40) + '\n\n';
+  var text = 'NEWS-DISTILLER SUMMARY\n' + '='.repeat(40) + '\n\n';
   if (m.title) text += 'Article: ' + m.title + '\n';
   if (m.siteName) text += 'Source: ' + m.siteName + '\n';
-  text += '\nFactual Score: ' + factual + '/10\n';
-  if (d.context_score) text += 'Context Score: ' + d.context_score + '/10\n';
-  if (d.executive_summary) text += '\n' + d.executive_summary + '\n';
-  text += '\nGenerated by TruthPrism \u2014 app.truthprism.app\n';
+  text += '\n' + (d.summary || '') + '\n\n';
+  if (d.lean) {
+    text += 'Political Lean: ' + d.lean + (d.confidence ? ' (' + d.confidence + ' confidence)' : '') + '\n';
+    (d.signals || []).forEach(function(s) { text += '  \u203a ' + s + '\n'; });
+    if (d.caveat) text += '\n' + d.caveat + '\n';
+  }
+  text += '\nDistilled by News-Distiller (app.news-distiller.com)\n';
   try {
     await navigator.clipboard.writeText(text);
     var btn = document.getElementById('saveBtn');
@@ -661,33 +686,14 @@ async function copyReport() {
 
 function resetResults() {
   document.getElementById('results').style.display = 'none';
-  ['summaryCard','factAssessCard','contextCard','scoreExplainCard'].forEach(function(id) {
-    var el = document.getElementById(id); if (el) el.style.display = 'none';
-  });
+  document.getElementById('summaryCard').style.display = 'none';
+  document.getElementById('biasCard').style.display = 'none';
   document.getElementById('errorMsg').style.display = 'none';
   document.getElementById('customText').value = '';
-  _savedResult = null; _savedMeta = null; _savedClaims = [];
+  _savedResult = null;
+  _savedMeta = null;
   var db = document.getElementById('demoBanner');
   if (db) db.style.display = 'none';
-  // Clear score boxes
-  var fs = document.getElementById('factualScore');
-  if (fs) { fs.textContent = ''; fs.style.background = ''; fs.style.color = ''; }
-  var cs = document.getElementById('contextScore');
-  if (cs) { cs.textContent = ''; cs.style.background = ''; cs.style.color = ''; }
-  ['factualDesc','contextDesc','factualRationale','contextRationale'].forEach(function(id) {
-    var el = document.getElementById(id); if (el) el.textContent = '';
-  });
-  // Clear lean gauge
-  var bc = document.getElementById('biasCard');
-  if (bc) bc.style.display = 'none';
-  var lm = document.getElementById('leanMarker');
-  if (lm) lm.style.left = '50%';
-  var lv = document.getElementById('leanVerdict');
-  if (lv) lv.textContent = '';
-  var ls = document.getElementById('leanSignals');
-  if (ls) ls.innerHTML = '';
-  var lc = document.getElementById('leanCaveat');
-  if (lc) { lc.textContent = ''; lc.style.display = 'none'; }
 }
 
 function showLoading(on) {
@@ -695,7 +701,12 @@ function showLoading(on) {
   document.getElementById('checkBtn').style.display = on ? 'none' : 'block';
   document.getElementById('checkCustomBtn').disabled = on;
   if (on) {
-    _loadingInterval = setInterval(function(){}, 9999); // placeholder, steps driven by SSE
+    var si = 0;
+    document.getElementById('loadingStep').textContent = LOADING_STEPS[0];
+    _loadingInterval = setInterval(function() {
+      si = (si + 1) % LOADING_STEPS.length;
+      document.getElementById('loadingStep').textContent = LOADING_STEPS[si];
+    }, 2000);
   } else {
     if (_loadingInterval) { clearInterval(_loadingInterval); _loadingInterval = null; }
   }
@@ -715,7 +726,7 @@ function initTextToggle() {
   if (!btn) return;
   // Restore saved preference (localStorage may throw in some Safari extension contexts)
   try {
-    if (localStorage.getItem('tp_large_text') === '1') {
+    if (localStorage.getItem('nd_large_text') === '1') {
       document.body.classList.add('large-text');
       btn.classList.add('active');
     }
@@ -723,7 +734,7 @@ function initTextToggle() {
   btn.addEventListener('click', function() {
     const isLarge = document.body.classList.toggle('large-text');
     btn.classList.toggle('active', isLarge);
-    try { localStorage.setItem('tp_large_text', isLarge ? '1' : '0'); } catch(e) {}
+    try { localStorage.setItem('nd_large_text', isLarge ? '1' : '0'); } catch(e) {}
   });
 }
 

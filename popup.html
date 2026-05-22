@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TruthPrism</title>
+  <title>News-Distiller</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { width: 380px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0D1525; color: #e0e8f0; }
     .header-links { display: flex; justify-content: flex-end; gap: 6px; padding: 6px 10px; background: #0D1525; border-bottom: 1px solid #1a2a40; }
-    .header-links a { padding: 3px 10px; background: rgba(102,126,234,0.15); border: 1px solid rgba(102,126,234,0.4); border-radius: 20px; color: #a78bfa; font-size: 11px; font-weight: 600; text-decoration: none; }
+    .header-links a { padding: 3px 10px; background: rgba(13,110,110,0.15); border: 1px solid rgba(13,110,110,0.4); border-radius: 20px; color: #11998E; font-size: 11px; font-weight: 600; text-decoration: none; }
+    .header-links a:hover { background: rgba(13,110,110,0.3); }
     .content { padding: 12px; }
     .auth-card { background: #162030; border: 1px solid #2a3a50; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
     .auth-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
@@ -17,54 +18,65 @@
     .auth-body { margin-top: 8px; }
     .auth-row { display: flex; gap: 6px; margin-bottom: 6px; }
     .code-input { flex: 1; padding: 7px 10px; border: 1px solid #2a3a50; border-radius: 6px; font-size: 12px; background: #0D1525; color: white; outline: none; font-family: monospace; }
-    .code-input:focus { border-color: #667eea; }
+    .code-input:focus { border-color: #0D6E6E; }
     .code-input::placeholder { color: #3a5070; font-family: sans-serif; }
     .btn-sm { padding: 7px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; white-space: nowrap; }
-    .btn-save { background: #667eea; color: white; }
+    .btn-save { background: #0D6E6E; color: white; }
     .btn-test { background: #1D9E75; color: white; }
     .auth-status { font-size: 11px; color: #6688aa; min-height: 14px; }
     .auth-status.ok { color: #1D9E75; }
     .auth-status.error { color: #e53e3e; }
+
     .page-url { font-size: 10px; color: #3a5070; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .paywall-warning { background: #2a1f00; border: 1px solid #4a3a00; border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #cc8800; margin-bottom: 8px; }
-    .intended-use { background: #1a1a3a; border: 1px solid rgba(167,139,250,0.35); border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #b8b0d0; margin-bottom: 8px; line-height: 1.5; }
-    .intended-use strong { color: #a78bfa; font-weight: 700; }
-    .check-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+    .intended-use { background: #0f2030; border: 1px solid rgba(13,110,110,0.35); border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #88aacc; margin-bottom: 8px; line-height: 1.5; }
+    .intended-use strong { color: #11998E; font-weight: 700; }
+    .check-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #0D6E6E 0%, #11998E 100%); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
     .check-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .or-divider { text-align: center; color: #3a5070; font-size: 11px; margin: 4px 0 8px; }
     .custom-label { font-size: 11px; color: #6688aa; display: block; margin-bottom: 4px; font-weight: 500; }
     .custom-text { width: 100%; min-height: 70px; padding: 8px; border: 1px solid #2a3a50; border-radius: 6px; font-size: 11px; font-family: inherit; resize: vertical; margin-bottom: 6px; background: #0D1525; color: #e0e8f0; }
-    .custom-text:focus { outline: none; border-color: #667eea; }
-    .check-custom-btn { width: 100%; padding: 9px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .custom-text:focus { outline: none; border-color: #0D6E6E; }
+    .check-custom-btn { width: 100%; padding: 9px; background: linear-gradient(135deg, #0D6E6E 0%, #11998E 100%); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
     .check-custom-btn:disabled { opacity: 0.4; }
     .loading { display: none; text-align: center; padding: 16px; color: #6688aa; }
-    .spinner { width: 26px; height: 26px; border: 3px solid #2a3a50; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 8px; }
+    .spinner { width: 26px; height: 26px; border: 3px solid #2a3a50; border-top: 3px solid #0D6E6E; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-step { font-size: 12px; color: #6688aa; }
     .error-msg { display: none; background: #2a1010; border: 1px solid #6a2020; border-radius: 6px; padding: 8px 10px; font-size: 11px; color: #f08080; margin-bottom: 8px; }
     .remaining-banner { font-size: 10px; text-align: center; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; display: none; }
     .results { display: none; }
-    .scores-row { display: flex; gap: 8px; margin-bottom: 8px; }
-    .score-box { flex: 1; background: #162030; border: 1px solid #2a3a50; border-radius: 8px; padding: 10px 8px; text-align: center; }
-    .score-lbl { font-size: 9px; color: #6688aa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600; }
-    .score-num { font-size: 28px; font-weight: 700; line-height: 1; }
-    .score-desc { font-size: 9px; color: #6688aa; margin-top: 3px; }
     .result-card { background: #162030; border: 1px solid #2a3a50; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
-    .result-title { font-size: 10px; font-weight: 600; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .result-title { font-size: 10px; font-weight: 600; color: #f0c040; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
     .result-text { font-size: 12px; color: #c0d0e0; line-height: 1.7; }
+    .bias-card { background: #0f1e30; border: 1px solid #2a3a50; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+    .bias-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .bias-title { font-size: 10px; font-weight: 600; color: #f0c040; text-transform: uppercase; letter-spacing: 0.5px; }
+    .confidence-pill { font-size: 9px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+    .conf-low { background: #2a2000; color: #cc8800; }
+    .conf-medium { background: #0a2030; color: #4da6ff; }
+    .conf-high { background: #0a2820; color: #1D9E75; }
+    .lean-labels { display: flex; justify-content: space-between; font-size: 9px; color: #4a6080; margin-bottom: 6px; }
+    .lean-meter { position: relative; height: 16px; border-radius: 8px; background: linear-gradient(to right, #2040a0, #3060c0, #888, #c06030, #a02020); margin-bottom: 8px; }
+    .lean-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: white; border: 2px solid #0D1525; box-shadow: 0 0 0 2px white; transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .lean-verdict { font-size: 14px; font-weight: 700; color: #e0e8f0; text-align: center; margin-bottom: 8px; }
+    .lean-signals { list-style: none; margin-bottom: 6px; }
+    .lean-signals li { font-size: 11px; color: #a0b4c8; padding: 3px 0; display: flex; gap: 6px; }
+    .lean-signals li::before { content: '\203a'; color: #4a6080; flex-shrink: 0; }
+    .lean-caveat { font-size: 11px; color: #f0c040; font-style: italic; margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a3a50; }
     .btn-row { display: flex; gap: 6px; margin-top: 8px; }
     .btn-action { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
-    .btn-full { background: #667eea; color: white; }
-    .btn-copy { background: rgba(102,126,234,0.2); color: #a78bfa; border: 1px solid #667eea; }
+    .btn-full { background: #0D6E6E; color: white; }
+    .btn-copy { background: rgba(13,110,110,0.2); color: #11998E; border: 1px solid #0D6E6E; }
     .btn-new { background: #2a3a50; color: #88aacc; }
     .help-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 9999; padding: 12px; overflow-y: auto; }
     .help-overlay.show { display: block; }
     .help-modal { background: #0D1525; border: 1px solid #2a3a50; border-radius: 10px; padding: 14px 16px 16px; max-width: 360px; margin: 0 auto; color: #e0e8f0; }
-    .help-modal h2 { font-size: 14px; color: #a78bfa; margin-bottom: 8px; }
-    .help-modal h3 { font-size: 12px; color: #c4b5fd; margin-top: 12px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+    .help-modal h2 { font-size: 14px; color: #11998E; margin-bottom: 8px; }
+    .help-modal h3 { font-size: 12px; color: #f0c040; margin-top: 12px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
     .help-modal p, .help-modal li { font-size: 12px; line-height: 1.55; color: #c0d0e0; margin-bottom: 6px; }
     .help-modal ul { margin: 4px 0 6px 16px; }
-    .help-modal kbd { background: #1a2a40; border: 1px solid #2a3a50; border-radius: 4px; padding: 1px 6px; font-family: -apple-system, monospace; font-size: 11px; color: #a78bfa; }
+    .help-modal kbd { background: #1a2a40; border: 1px solid #2a3a50; border-radius: 4px; padding: 1px 6px; font-family: -apple-system, monospace; font-size: 11px; color: #88bbff; }
     .help-modal .help-close { position: sticky; top: 0; float: right; background: #1a2a40; border: 1px solid #2a3a50; color: #e0e8f0; width: 28px; height: 28px; border-radius: 14px; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; display: flex; align-items: center; justify-content: center; }
     .help-modal .help-section { background: #162030; border-radius: 6px; padding: 8px 10px; margin-top: 6px; }
     body.large-text .advisory-card { font-size: 14px; }
@@ -101,12 +113,12 @@
   
     /* Large text toggle */
     .text-toggle { 
-      background: none; border: 1px solid #2a2a4a; border-radius: 4px;
+      background: none; border: 1px solid #2a3a50; border-radius: 4px;
       color: #6080a0; font-size: 11px; font-weight: 700; 
       padding: 2px 6px; cursor: pointer; line-height: 1;
     }
-    .text-toggle:hover { border-color: #a78bfa; color: #a78bfa; }
-    .text-toggle.active { border-color: #a78bfa; color: #a78bfa; background: rgba(167,139,250,0.1); }
+    .text-toggle:hover { border-color: #11998E; color: #11998E; }
+    .text-toggle.active { border-color: #11998E; color: #11998E; background: rgba(17,153,142,0.1); }
     
     body.large-text { font-size: 17px; }
     body.large-text .advisory-card,
@@ -156,33 +168,16 @@
     body.large-text .or-divider { font-size: 14px; }
     body.large-text .error-msg,
     body.large-text .error { font-size: 14px; }
-    body.large-text .score-num { font-size: 38px; }
-    body.large-text .score-lbl { font-size: 14px; }
-    body.large-text .score-desc { font-size: 14px; }
-
-    .bias-card { background: #0f1e30; border: 1px solid #2a3a50; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
-    .bias-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .bias-title { font-size: 10px; font-weight: 600; color: #f0c040; text-transform: uppercase; letter-spacing: 0.5px; }
-    .confidence-pill { font-size: 9px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
-    .conf-low { background: #2a2000; color: #cc8800; }
-    .conf-medium { background: #0a2030; color: #4da6ff; }
-    .conf-high { background: #0a2820; color: #1D9E75; }
-    .lean-labels { display: flex; justify-content: space-between; font-size: 9px; color: #4a6080; margin-bottom: 6px; }
-    .lean-meter { position: relative; height: 16px; border-radius: 8px; background: linear-gradient(to right, #2040a0, #3060c0, #888, #c06030, #a02020); margin-bottom: 8px; }
-    .lean-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: white; border: 2px solid #0D1525; box-shadow: 0 0 0 2px white; transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
-    .lean-verdict { font-size: 14px; font-weight: 700; color: #e0e8f0; text-align: center; margin-bottom: 8px; }
-    .lean-signals { list-style: none; margin-bottom: 6px; padding: 0; }
-    .lean-signals li { font-size: 11px; color: #a0b4c8; padding: 3px 0; display: flex; gap: 6px; }
-    .lean-signals li::before { content: '\203a'; color: #4a6080; flex-shrink: 0; }
-    .lean-caveat { font-size: 11px; color: #f0c040; font-style: italic; margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a3a50; }
   </style>
 </head>
 <body>
-  <img src="images/splash.png" alt="TruthPrism" style="width:100%;display:block;max-height:110px;object-fit:cover;object-position:center top;" onerror="this.style.display='none'">
+  <img src="images/splash.png" alt="News-Distiller" style="width:100%;display:block;max-height:110px;object-fit:cover;object-position:center top;" onerror="this.style.display='none'">
+
   <div class="header-links">
     <button class="text-toggle" id="textToggleBtn">Aa</button>
     <a href="#" id="helpLink">❓ Help</a>
   </div>
+
   <div class="content">
     <div class="auth-card">
       <div class="auth-header" id="authHeader">
@@ -199,12 +194,13 @@
         <div class="auth-status" id="authStatus">Enter your access code (optional)</div>
         <div style="margin-top:6px;font-size:11px;text-align:center;">
           <a href="https://pklmedialab.com" target="_blank"
-             style="color:#a78bfa;text-decoration:none;font-weight:600;">
-            Need a code? Visit pklmedialab.com to request a free Prism Pack
+             style="color:#11998E;text-decoration:none;font-weight:600;">
+            Need a code? Visit pklmedialab.com to request a free Distiller Pack
           </a>
         </div>
       </div>
     </div>
+
     <div class="intended-use" id="intendedUse">
       <strong>Intended use:</strong> Use only with content you're authorized to read — sites you subscribe to or freely-published articles. Please respect publisher paywalls.
     </div>
@@ -213,54 +209,29 @@
     <div class="page-url" id="pageUrl">Loading...</div>
     <div class="paywall-warning">⚠ Paywalled articles (NYT, WSJ, etc.) cannot be retrieved by URL. Paste the article text below instead.</div>
     <div class="error-msg" id="errorMsg"></div>
-    <button class="check-btn" id="checkBtn">🔍 Check This Page</button>
+
+    <button class="check-btn" id="checkBtn">🔍 Distill This Page</button>
     <div style="text-align:center;margin-top:5px;">
-      <button id="sampleBtn" style="background:none;border:1px solid #a78bfa;border-radius:5px;padding:3px 12px;font-size:10px;color:#a78bfa;opacity:0.65;cursor:pointer;">Run Demo</button>
+      <button id="sampleBtn" style="background:none;border:1px solid #11998E;border-radius:5px;padding:3px 12px;font-size:10px;color:#11998E;opacity:0.65;cursor:pointer;">Run Demo</button>
     </div>
-    <div id="demoBanner" style="display:none;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.3);border-radius:6px;padding:8px 12px;margin-top:8px;font-size:10px;color:#b8a8d8;line-height:1.5;">
-      <strong style="color:#a78bfa;display:block;margin-bottom:2px;">🔍 Sample Analysis — TruthPrism Demo</strong>
-      Real fact-check of an NPR article. Enter an access code above to fact-check your own articles.
+    <div id="demoBanner" style="display:none;background:rgba(17,153,142,0.08);border:1px solid rgba(17,153,142,0.3);border-radius:6px;padding:8px 12px;margin-top:8px;font-size:10px;color:#88ccaa;line-height:1.5;">
+      <strong style="color:#38ef7d;display:block;margin-bottom:2px;">🔍 Sample Analysis — News-Distiller Demo</strong>
+      Real analysis of an NPR article. Enter an access code above to analyze your own articles.
     </div>
     <div class="or-divider">— OR —</div>
     <label class="custom-label">Paste Article or Text:</label>
-    <textarea class="custom-text" id="customText" placeholder="Paste any article or text to fact-check..."></textarea>
-    <button class="check-custom-btn" id="checkCustomBtn">🔍 Check This Text</button>
+    <textarea class="custom-text" id="customText" placeholder="Paste any article, news story, or document..."></textarea>
+    <button class="check-custom-btn" id="checkCustomBtn">🔍 Distill This Text</button>
+
     <div class="loading" id="loading">
       <div class="spinner"></div>
-      <p id="loadingStep" class="loading-step">Analyzing content…</p>
+      <div class="loading-step" id="loadingStep">Reading and analyzing content…</div>
     </div>
+
     <div class="results" id="results">
-      <div class="scores-row">
-        <div class="score-box">
-          <div class="score-lbl" style="color:#60a5fa;">Factual Score</div>
-          <div class="score-num" id="factualScore">—</div>
-          <div class="score-desc" id="factualDesc"></div>
-        </div>
-        <div class="score-box">
-          <div class="score-lbl" style="color:#a78bfa;">Context Score</div>
-          <div class="score-num" id="contextScore">—</div>
-          <div class="score-desc" id="contextDesc"></div>
-        </div>
-      </div>
       <div class="result-card" id="summaryCard" style="display:none;">
         <div class="result-title">Executive Summary</div>
-        <div style="font-size:11px;font-weight:600;color:#e0e8f0;margin-bottom:4px;" id="summaryHeadline"></div>
         <div class="result-text" id="summaryText"></div>
-      </div>
-      <div class="result-card" id="factAssessCard" style="display:none;">
-        <div class="result-title">Fact Check Assessment</div>
-        <div class="result-text" id="factAssessText"></div>
-      </div>
-      <div class="result-card" id="contextCard" style="display:none;">
-        <div class="result-title">Context &amp; Framing</div>
-        <div class="result-text" id="contextAssessText"></div>
-      </div>
-      <div class="result-card" id="scoreExplainCard" style="display:none;">
-        <div class="result-title">Score Explanation</div>
-        <div style="font-size:11px;color:#c0d0e0;line-height:1.6;">
-          <div id="factualRationale" style="margin-bottom:4px;"></div>
-          <div id="contextRationale"></div>
-        </div>
       </div>
 
       <div class="bias-card" id="biasCard" style="display:none;">
@@ -278,6 +249,7 @@
         <ul class="lean-signals" id="leanSignals"></ul>
         <div class="lean-caveat" id="leanCaveat" style="display:none;"></div>
       </div>
+
       <div class="btn-row">
         <button class="btn-action btn-full" id="fullReportBtn">📄 Full Report</button>
         <button class="btn-action btn-copy" id="saveBtn">📋 Copy</button>
@@ -285,55 +257,44 @@
       </div>
     </div>
   </div>
+
   <div class="help-overlay" id="helpOverlay" role="dialog" aria-labelledby="helpTitle">
     <div class="help-modal">
       <button class="help-close" id="helpClose" aria-label="Close help">×</button>
-      <h2 id="helpTitle">📚 TruthPrism Help</h2>
+      <h2 id="helpTitle">📚 News-Distiller Help</h2>
 
-      <p>TruthPrism fact-checks any news article by extracting key claims and verifying each one against external sources.</p>
+      <p>News-Distiller summarizes any news article and identifies its political lean using AI.</p>
 
       <h3>How to use</h3>
       <ul>
-        <li>Open any article in Safari, then tap the TruthPrism button.</li>
-        <li>Tap <kbd>🔍 Check This Page</kbd> — you'll get a Factual Score, Context Score, and a per-claim breakdown.</li>
-        <li>Or paste the article text into the box and tap <kbd>🔍 Check This Text</kbd>.</li>
+        <li>Open any article in Safari, then tap the News-Distiller button.</li>
+        <li>Tap <kbd>🔍 Distill This Page</kbd> — you'll get an Executive Summary and a Political Lean Assessment.</li>
+        <li>Or paste the article text into the box and tap <kbd>🔍 Distill This Text</kbd>.</li>
       </ul>
 
       <h3>Intended use</h3>
-      <p>Please use TruthPrism only with articles you're authorized to read — sites you subscribe to, gift links you've received, or freely-published content. Respect publisher paywalls.</p>
+      <p>Please use News-Distiller only with articles you're authorized to read — sites you subscribe to, gift links you've received, or freely-published content. Respect publisher paywalls.</p>
 
-      <h3>Checks</h3>
-      <p>You initially get 2 checks. After that, you'll need a friends-and-family access code to continue. Access codes are not available for purchase.</p>
+      <h3>Distillations</h3>
+      <p>You initially get 5 distillations. After that, you'll need a friends-and-family access code to continue. Access codes are not available for purchase.</p>
 
       <h3>Access codes</h3>
-      <p>If you have a TruthPrism iOS access code, enter it in the Access Code box and tap <kbd>Save</kbd>. iOS access codes start with <kbd>TPi-</kbd>. Codes for the desktop Chrome version don't work here, and vice versa.</p>
-
-      <h3>Reading the results</h3>
-      <ul>
-        <li><strong>Factual Score (0–10):</strong> how well the article's key factual claims hold up under verification.</li>
-        <li><strong>Context Score (0–10):</strong> how complete the article's framing and context are.</li>
-        <li><strong>Per-claim verdicts:</strong> Supported, Partially Supported, or False — with finding and source notes.</li>
-      </ul>
+      <p>If you have a News-Distiller iOS access code, enter it in the Access Code box and tap <kbd>Save</kbd>. iOS access codes start with <kbd>NDi-</kbd>. Codes for the desktop Chrome version don't work here, and vice versa.</p>
 
       <h3>Full Report</h3>
-      <p>After checking, tap <kbd>📄 Full Report</kbd> to see a detailed view with Executive Summary, all claims, Fact Check Assessment, Context & Framing, and Score Explanation.</p>
+      <p>After distilling, tap <kbd>📄 Full Report</kbd> to see a detailed view with Executive Summary, Key Findings, Implications, Context, and Political Lean Assessment.</p>
 
       <h3>Saving as PDF</h3>
       <p>Open the Full Report, then tap Safari's share icon → tap <kbd>Options</kbd> at the top → select <kbd>PDF</kbd>. From there you can Mail, Message, AirDrop, or save to Files.</p>
 
       <h3>Privacy</h3>
-      <p>TruthPrism only sees the article text you ask it to fact-check. Nothing else is read or stored from your browsing.</p>
-      <p><a href="https://pklmedialab.com/privacy.html" target="_blank" style="color:#a78bfa;text-decoration:underline;">Read our full Privacy Policy →</a></p>
+      <p>News-Distiller only sees the article text you ask it to analyze. Nothing else is read or stored from your browsing.</p>
+      <p><a href="https://pklmedialab.com/privacy.html" target="_blank" style="color:#11998E;text-decoration:underline;">Read our full Privacy Policy →</a></p>
 
       <div class="help-section">
-        <p style="margin:0;color:#88aacc;font-size:11px;">TruthPrism is built on Anthropic's Claude AI and uses Brave Search for source verification.</p>
+        <p style="margin:0;color:#88aacc;font-size:11px;">News-Distiller is built on Anthropic's Claude AI.</p>
       </div>
     </div>
-  </div>
-
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 12px 8px;flex-shrink:0;">
-    <a href="https://pklmedialab.com/privacy.html" target="_blank" style="font-size:10px;color:#4a6a8a;text-decoration:none;">Privacy Policy</a>
-    <a href="https://app.news-distiller.com" target="_blank" style="font-size:10px;color:#a78bfa;text-decoration:none;font-weight:600;border:1px solid rgba(167,139,250,0.4);padding:2px 7px;border-radius:10px;">&#10024; Also try News-Distiller</a>
   </div>
 
   <script src="popup.js"></script>
